@@ -1,0 +1,14 @@
+# Нормализация переводов строк.
+# Скрипты должны быть с LF, иначе падают на Linux/VPS.
+* text=auto eol=lf
+*.sh   text eol=lf
+*.ps1  text eol=lf
+*.jsonc text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.tar.gz binary

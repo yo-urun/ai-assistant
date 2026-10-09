@@ -1,0 +1,99 @@
+name: ai-assistant
+
+services:
+  # ------------------------------------------------------------------
+  #  OpenCode V2 — ядро агента (провайдеры, сессии, MCP, права).
+  #  Собирается из ./opencode (Node + @opencode/cli).
+  # ------------------------------------------------------------------
+  opencode:
+    build:
+      context: ./opencode
+    image: ${OPENCODE_IMAGE:-opencode-v2:local}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    working_dir: /workspace
+    volumes:
+      # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.
+      - ./opencode/opencode.jsonc:/root/.config/opencode/opencode.jsonc:ro
+      # Состояние OpenCode: БД сессий и пр.
+      - opencode_data:/root/.local/share/opencode
+      # Рабочая папка агента.
+      - workspace:/workspace
+    healthcheck:
+      # Проверяем, что сервер слушает порт (без авторизации — достаточно TCP).
+      test: ["CMD", "node", "-e", "const net=require('net');const s=net.connect(49374,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # Порт наружу не публикуем: бот ходит к opencode по внутренней сети compose.
+    # Если нужен доступ с хоста — раскомментируйте (следите за конфликтом портов):
+    # ports:
+    #   - "127.0.0.1:49374:49374"
+
+  # ------------------------------------------------------------------
+  #  Telegram-бот (grinev/opencode-telegram-bot, MIT).
+  #  Тонкий мост к OpenCode: сессии, голос (STT), файлы, команды.
+  # ------------------------------------------------------------------
+  bot:
+    build:
+      context: ./bot
+    image: ${BOT_IMAGE:-opencode-telegram-bot:local}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOME: /data
+      OPENCODE_TELEGRAM_CONTAINER: "1"
+    volumes:
+      - bot_data:/data
+    depends_on:
+      opencode:
+        condition: service_healthy
+
+  # ------------------------------------------------------------------
+  #  Graphiti MCP: долговременная память агента. Укажите свой образ.
+  #  Включается профилем compose "memory" (см. COMPOSE_PROFILES в .env).
+  # ------------------------------------------------------------------
+  graphiti:
+    image: ${GRAPHITI_IMAGE}
+    restart: unless-stopped
+    profiles: ["memory"]
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD}
+      # Graphiti использует LLM для эмбеддингов/реранкера.
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+    depends_on:
+      falkordb:
+        condition: service_healthy
+
+  # ------------------------------------------------------------------
+  #  FalkorDB: графовая база для памяти.
+  # ------------------------------------------------------------------
+  falkordb:
+    image: ${FALKORDB_IMAGE:-falkordb/falkordb:latest}
+    restart: unless-stopped
+    profiles: ["memory"]
+    environment:
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD}
+    command: ["redis-server", "--requirepass", "${FALKORDB_PASSWORD}"]
+    volumes:
+      - falkordb_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$FALKORDB_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  bot_data:
+  opencode_data:
+  falkordb_data:
+  workspace:

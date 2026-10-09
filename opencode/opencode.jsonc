@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Модель по умолчанию. Бот может переопределять её из /settings.
+  "model": "openai/gpt-4o-mini",
+
+  // Агент, который используется, если сессия не выбрала иной.
+  "default_agent": "assistant",
+
+  "agents": {
+    "assistant": {
+      "description": "Персональный ассистент в Telegram",
+      "mode": "primary",
+      "system": "Ты — полезный персональный ассистент. Отвечай кратко и по делу. Помни контекст пользователя, используй долговременную память. Не изменяй файлы без необходимости.",
+      // Для ассистента-«болталки» запрещаем правку/запись файлов.
+      // Это и есть точка кастомизации под конкретного клиента.
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "write", "resource": "*", "effect": "deny" }
+      ]
+    }
+  },
+
+  "mcp": {
+    "servers": {
+      "graphiti": {
+        "type": "remote",
+        "url": "http://graphiti:8000/mcp",
+        "oauth": false
+      }
+    }
+  }
+}

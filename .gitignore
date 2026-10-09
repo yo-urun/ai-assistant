@@ -1,0 +1,23 @@
+# Секреты и локальная конфигурация
+.env
+*.local
+
+# Данные
+data/
+volumes/
+backups/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python (если появятся скрипты)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Прочее
+.DS_Store
+Thumbs.db
+*.log

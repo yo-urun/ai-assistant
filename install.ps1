@@ -1,0 +1,329 @@
+﻿#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Мастер установки AI-ассистента.
+    OpenCode V2 + Telegram-бот (grinev/opencode-telegram-bot) + Graphiti/FalkorDB.
+
+.DESCRIPTION
+    Пошагово спрашивает настройки и API-ключи, создаёт .env и запускает
+    docker compose. Секреты вводятся скрыто. Повторный запуск не затирает
+    уже введённые значения — просто нажимайте Enter.
+
+.EXAMPLE
+    .\install.ps1
+    .\install.ps1 -Reconfigure   # заново спросить все настройки
+    .\install.ps1 -NoStart       # только создать .env, не запускать
+    .\install.ps1 -Yes           # без вопросов (для автоматизации)
+#>
+[CmdletBinding()]
+param(
+    [switch]$Yes,
+    [switch]$Reconfigure,
+    [switch]$NoStart
+)
+
+$ErrorActionPreference = 'Stop'
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+$Root    = Split-Path -Parent $MyInvocation.MyCommand.Path
+$EnvFile = Join-Path $Root '.env'
+
+# ------------------------------------------------------------------ вывод
+function Write-Head([string]$t) { Write-Host "`n$t" -ForegroundColor Cyan }
+function Ok([string]$m)   { Write-Host "  [ok]  $m" -ForegroundColor Green }
+function Info([string]$m) { Write-Host "  [..]  $m" -ForegroundColor DarkGray }
+function Warn([string]$m) { Write-Host "  [!!]  $m" -ForegroundColor Yellow }
+function Fail([string]$m) { Write-Host "  [xx]  $m" -ForegroundColor Red }
+
+# ------------------------------------------------------------------ ввод
+function AskValue {
+    param([string]$Prompt, [string]$Current = '', [switch]$Required)
+    if ($Yes) {
+        if ($Required -and [string]::IsNullOrWhiteSpace($Current)) {
+            throw "Не задано обязательное поле: $Prompt"
+        }
+        return $Current
+    }
+    while ($true) {
+        $hint = if ($Current) { " [$Current]" } else { '' }
+        $v = Read-Host "$Prompt$hint"
+        if ([string]::IsNullOrWhiteSpace($v)) {
+            if ($Current) { return $Current }
+            if ($Required) { Warn 'Обязательное поле, повторите.'; continue }
+            return ''
+        }
+        return $v.Trim()
+    }
+}
+
+function AskSecret {
+    param([string]$Prompt, [string]$Current = '', [switch]$Required)
+    if ($Yes) {
+        if ($Required -and [string]::IsNullOrWhiteSpace($Current)) {
+            throw "Не задан секрет: $Prompt"
+        }
+        return $Current
+    }
+    while ($true) {
+        $hint = if ($Current) { '  (Enter — оставить текущий)' } else { '' }
+        Write-Host "$Prompt$hint"
+        $sec = Read-Host -AsSecureString
+        $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+        try { $v = [Runtime.InteropServices.Marshal]::PtrToStringAuto($ptr) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+        if ([string]::IsNullOrWhiteSpace($v)) {
+            if ($Current) { return $Current }
+            if ($Required) { Warn 'Обязательное поле, повторите.'; continue }
+            return ''
+        }
+        return $v.Trim()
+    }
+}
+
+function New-Hex([int]$Bytes = 24) {
+    $buf = [byte[]]::new($Bytes)
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buf)
+    ($buf | ForEach-Object { $_.ToString('x2') }) -join ''
+}
+
+# ------------------------------------------------------------------ env
+function Read-EnvMap([string]$Path) {
+    $map = @{}
+    if (-not (Test-Path -LiteralPath $Path)) { return $map }
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
+        $i = $line.IndexOf('=')
+        if ($i -lt 1) { continue }
+        $map[$line.Substring(0, $i).Trim()] = $line.Substring($i + 1).Trim()
+    }
+    return $map
+}
+
+function Save-Env([hashtable]$m) {
+    $l = New-Object System.Collections.Generic.List[string]
+    $add = { param($s) $l.Add($s) }
+    & $add '# ============================================================'
+    & $add '#  AI-ассистент  (OpenCode V2 + Telegram-бот + Graphiti/FalkorDB)'
+    & $add '#  Создано мастером установки. НЕ коммитьте в git.'
+    & $add '# ============================================================'
+    & $add ''
+    & $add '# --- Telegram ---'
+    & $add "TELEGRAM_BOT_TOKEN=$($m.TELEGRAM_BOT_TOKEN)"
+    & $add "TELEGRAM_ALLOWED_USER_ID=$($m.TELEGRAM_ALLOWED_USER_ID)"
+    & $add "BOT_LOCALE=$($m.BOT_LOCALE)"
+    & $add ''
+    & $add '# --- OpenCode Server V2 ---'
+    & $add "OPENCODE_SERVER_VERSION=$($m.OPENCODE_SERVER_VERSION)"
+    & $add "OPENCODE_API_URL=$($m.OPENCODE_API_URL)"
+    & $add "OPENCODE_SERVER_USERNAME=$($m.OPENCODE_SERVER_USERNAME)"
+    & $add "OPENCODE_SERVER_PASSWORD=$($m.OPENCODE_SERVER_PASSWORD)"
+    & $add ''
+    & $add '# --- Модель OpenCode ---'
+    & $add "OPENCODE_MODEL_PROVIDER=$($m.OPENCODE_MODEL_PROVIDER)"
+    & $add "OPENCODE_MODEL_ID=$($m.OPENCODE_MODEL_ID)"
+    & $add ''
+    & $add '# --- Ключи провайдеров ---'
+    & $add "OPENAI_API_KEY=$($m.OPENAI_API_KEY)"
+    & $add "ANTHROPIC_API_KEY=$($m.ANTHROPIC_API_KEY)"
+    & $add "OPENROUTER_API_KEY=$($m.OPENROUTER_API_KEY)"
+    & $add ''
+    & $add '# --- Голос: STT (Whisper-совместимый) ---'
+    & $add "STT_API_URL=$($m.STT_API_URL)"
+    & $add "STT_API_KEY=$($m.STT_API_KEY)"
+    & $add "STT_MODEL=$($m.STT_MODEL)"
+    & $add "STT_LANGUAGE=$($m.STT_LANGUAGE)"
+    & $add ''
+    & $add '# --- Память: Graphiti + FalkorDB ---'
+    & $add "# Профиль compose: memory включает память. Пусто - без памяти."
+    & $add "COMPOSE_PROFILES=$($m.COMPOSE_PROFILES)"
+    & $add "FALKORDB_PASSWORD=$($m.FALKORDB_PASSWORD)"
+    & $add "GRAPHITI_IMAGE=$($m.GRAPHITI_IMAGE)"
+    & $add "FALKORDB_IMAGE=$($m.FALKORDB_IMAGE)"
+    & $add ''
+    & $add '# --- Docker-образы ---'
+    & $add "OPENCODE_IMAGE=$($m.OPENCODE_IMAGE)"
+    & $add "BOT_IMAGE=$($m.BOT_IMAGE)"
+    & $add ''
+    & $add '# --- Прочее ---'
+    & $add "TZ=$($m.TZ)"
+    & $add "LOG_LEVEL=$($m.LOG_LEVEL)"
+
+    $enc = New-Object System.Text.UTF8Encoding($false)   # без BOM
+    [System.IO.File]::WriteAllLines($EnvFile, $l, $enc)
+}
+
+# ------------------------------------------------------------------ docker
+function Test-Docker {
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        Fail 'Docker не найден.'
+        Info 'Установите Docker Desktop: https://www.docker.com/products/docker-desktop/'
+        return $false
+    }
+    docker info *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Fail 'Docker установлен, но не запущен. Запустите Docker Desktop и повторите.'
+        return $false
+    }
+    docker compose version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Fail 'Не найден плагин "docker compose" (Docker Compose v2).'
+        return $false
+    }
+    return $true
+}
+
+# ================================================================== main
+Write-Host @"
+
+============================================================
+          AI-ассистент  -  мастер установки
+     OpenCode V2  +  Telegram-бот  +  Graphiti/FalkorDB
+============================================================
+"@ -ForegroundColor Magenta
+
+Write-Head '1. Проверка Docker'
+if (-not (Test-Docker)) { exit 1 }
+Ok 'Docker и docker compose готовы'
+
+$d = @{
+    TELEGRAM_BOT_TOKEN       = ''
+    TELEGRAM_ALLOWED_USER_ID = ''
+    BOT_LOCALE               = 'ru'
+    OPENCODE_SERVER_VERSION  = 'v2'
+    OPENCODE_API_URL         = 'http://opencode:49374'
+    OPENCODE_SERVER_USERNAME = 'opencode'
+    OPENCODE_SERVER_PASSWORD = ''
+    OPENCODE_MODEL_PROVIDER  = 'openai'
+    OPENCODE_MODEL_ID        = 'gpt-4o-mini'
+    OPENAI_API_KEY           = ''
+    ANTHROPIC_API_KEY        = ''
+    OPENROUTER_API_KEY       = ''
+    STT_API_URL              = 'https://api.openai.com/v1'
+    STT_API_KEY              = ''
+    STT_MODEL                = 'whisper-1'
+    STT_LANGUAGE             = 'ru'
+    COMPOSE_PROFILES         = 'memory'
+    FALKORDB_PASSWORD        = ''
+    GRAPHITI_IMAGE           = 'ghcr.io/your-github-user/ai-assistant-graphiti:latest'
+    FALKORDB_IMAGE           = 'falkordb/falkordb:latest'
+    OPENCODE_IMAGE           = 'opencode-v2:local'
+    BOT_IMAGE                = 'opencode-telegram-bot:local'
+    TZ                       = 'Europe/Moscow'
+    LOG_LEVEL                = 'info'
+}
+
+if ((Test-Path -LiteralPath $EnvFile) -and -not $Reconfigure) {
+    Info 'Найдены прежние настройки в .env — значения подставлены, Enter = оставить.'
+    $existing = Read-EnvMap $EnvFile
+    foreach ($k in @($d.Keys)) {
+        if ($existing.ContainsKey($k) -and $existing[$k] -ne '') { $d[$k] = $existing[$k] }
+    }
+}
+
+# ---------------------------------------------------------- Telegram
+Write-Head '2. Telegram'
+$d.TELEGRAM_BOT_TOKEN = AskSecret 'Токен бота (от @BotFather)' $d.TELEGRAM_BOT_TOKEN -Required
+if ($d.TELEGRAM_BOT_TOKEN -notmatch '^\d{6,}:[A-Za-z0-9_-]{30,}$') {
+    Warn 'Токен не похож на настоящий (формат "123456:ABC..."). Продолжаем, но проверьте.'
+}
+$d.TELEGRAM_ALLOWED_USER_ID = AskValue 'Ваш числовой Telegram ID (от @userinfobot)' $d.TELEGRAM_ALLOWED_USER_ID -Required
+$d.BOT_LOCALE               = AskValue 'Язык интерфейса бота (ru|en|...)' $d.BOT_LOCALE
+
+# ---------------------------------------------------------- LLM
+Write-Head '3. Модель OpenCode'
+$providers = @(
+    @{ key = 'openai';     name = 'OpenAI';           model = 'gpt-4o-mini';            keyEnv = 'OPENAI_API_KEY';     stt = 'https://api.openai.com/v1' },
+    @{ key = 'openrouter'; name = 'OpenRouter';       model = 'openai/gpt-4o-mini';     keyEnv = 'OPENROUTER_API_KEY'; stt = 'https://openrouter.ai/api/v1' },
+    @{ key = 'anthropic';  name = 'Anthropic';        model = 'claude-3-5-sonnet-latest'; keyEnv = 'ANTHROPIC_API_KEY'; stt = 'https://api.openai.com/v1' },
+    @{ key = 'ollama';     name = 'Ollama (локально)';model = 'llama3.1';               keyEnv = '';                   stt = 'https://api.openai.com/v1' },
+    @{ key = 'custom';     name = 'Свой вариант';     model = $d.OPENCODE_MODEL_ID;     keyEnv = 'OPENAI_API_KEY';     stt = $d.STT_API_URL }
+)
+$chosen = $null
+if (-not $Yes) {
+    Write-Host 'Выберите провайдера (ключ вводится вручную):'
+    for ($i = 0; $i -lt $providers.Count; $i++) {
+        $mark = if ($providers[$i].key -eq $d.OPENCODE_MODEL_PROVIDER) { '*' } else { ' ' }
+        Write-Host ("   {0}) {1} {2}" -f ($i + 1), $mark, $providers[$i].name)
+    }
+    while ($true) {
+        $a = Read-Host 'Номер'
+        if ([string]::IsNullOrWhiteSpace($a)) {
+            $chosen = ($providers | Where-Object { $_.key -eq $d.OPENCODE_MODEL_PROVIDER } | Select-Object -First 1)
+            if (-not $chosen) { $chosen = $providers[0] }
+            break
+        }
+        $n = 0
+        if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $providers.Count) {
+            $chosen = $providers[$n - 1]; break
+        }
+        Warn 'Введите номер из списка.'
+    }
+} else {
+    $chosen = ($providers | Where-Object { $_.key -eq $d.OPENCODE_MODEL_PROVIDER } | Select-Object -First 1)
+    if (-not $chosen) { $chosen = $providers[0] }
+}
+$d.OPENCODE_MODEL_PROVIDER = $chosen.key
+$d.OPENCODE_MODEL_ID       = AskValue 'Модель (provider/model -> model)' $chosen.model
+if ($chosen.keyEnv -ne '') {
+    $cur = $d[$chosen.keyEnv]
+    $d[$chosen.keyEnv] = AskSecret "API-ключ для $($chosen.name) ($($chosen.keyEnv))" $cur -Required
+}
+
+# ---------------------------------------------------------- Whisper / STT
+Write-Head '4. Голос (Whisper-совместимый STT)'
+$d.STT_API_URL  = AskValue 'STT API base URL (пусто — выключить голос)' $d.STT_API_URL
+if ($d.STT_API_URL) {
+    $sttDefault = if ($d.STT_API_KEY) { $d.STT_API_KEY }
+                  elseif ($chosen.keyEnv -ne '' -and $d[$chosen.keyEnv]) { $d[$chosen.keyEnv] }
+                  else { '' }
+    $d.STT_API_KEY    = AskSecret 'STT API-ключ' $sttDefault
+    $d.STT_MODEL      = AskValue 'STT модель' $d.STT_MODEL
+    $d.STT_LANGUAGE   = AskValue 'Язык распознавания (пусто — авто)' $d.STT_LANGUAGE
+}
+
+# ---------------------------------------------------------- Память
+Write-Head '5. Память (Graphiti + FalkorDB)'
+if ([string]::IsNullOrWhiteSpace($d.FALKORDB_PASSWORD)) {
+    $d.FALKORDB_PASSWORD = New-Hex 24
+    Ok 'Сгенерирован пароль для FalkorDB.'
+}
+$d.GRAPHITI_IMAGE = AskValue 'Образ Graphiti MCP' $d.GRAPHITI_IMAGE
+
+# ---------------------------------------------------------- Прочее
+Write-Head '6. Прочее'
+if ([string]::IsNullOrWhiteSpace($d.OPENCODE_SERVER_PASSWORD)) {
+    $d.OPENCODE_SERVER_PASSWORD = New-Hex 24
+    Ok 'Сгенерирован пароль для OpenCode Server V2.'
+}
+$d.TZ        = AskValue 'Часовой пояс' $d.TZ
+$d.LOG_LEVEL = AskValue 'Уровень логов (debug|info|warn|error)' $d.LOG_LEVEL
+
+Save-Env $d
+Ok "Настройки сохранены в $EnvFile"
+
+if ($NoStart) {
+    Write-Head 'Готово'
+    Info 'Запуск пропущен (-NoStart). Когда будете готовы:  docker compose up -d --build'
+    exit 0
+}
+
+Write-Head '7. Сборка и запуск контейнеров'
+Push-Location $Root
+try {
+    Info 'docker compose up -d --build (первый запуск собирает образы, это долго) ...'
+    docker compose up -d --build
+    if ($LASTEXITCODE -ne 0) {
+        Fail 'Не удалось запустить. Посмотрите логи:  docker compose logs -f'
+        exit 1
+    }
+} finally {
+    Pop-Location
+}
+
+Start-Sleep -Seconds 3
+docker compose -f (Join-Path $Root 'docker-compose.yml') ps
+
+Write-Host ''
+Ok 'Готово!'
+Info 'Логи:     docker compose logs -f'
+Info 'Стоп:     docker compose down'
+Info 'Обновить: docker compose pull && docker compose up -d --build'
