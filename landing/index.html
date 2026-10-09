@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-ассистент — персональный помощник в Telegram</title>
+  <meta name="description" content="Self-hosted AI-ассистент: OpenCode V2 + Telegram + долговременная память. Работает локально, нужен только Docker." />
+  <meta property="og:title" content="AI-ассистент — персональный помощник в Telegram" />
+  <meta property="og:description" content="Self-hosted сборка: OpenCode V2 + Telegram + память Graphiti. Нужен только Docker." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#0a0b10; --panel:#12141c; --panel-2:#171a24; --line:#242838;
+      --text:#e8eaf2; --muted:#9aa2b8; --accent:#7c6cff; --accent-2:#22d3ee;
+      --ok:#3ddc97; --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+    .grad{background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      -webkit-background-clip:text;background-clip:text;color:transparent}
+
+    /* header */
+    header{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
+      background:rgba(10,11,16,.75);border-bottom:1px solid var(--line)}
+    .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800}
+    .brand .dot{width:10px;height:10px;border-radius:50%;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+    .nav-links{display:flex;gap:22px;color:var(--muted);font-size:14px;font-weight:500}
+    .nav-links a:hover{color:var(--text)}
+    .nav .btn{padding:8px 14px;font-size:14px}
+    @media(max-width:760px){.nav-links{display:none}}
+
+    /* buttons */
+    .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;
+      padding:12px 20px;font-weight:600;border:1px solid var(--line);
+      background:var(--panel-2);color:var(--text);cursor:pointer;transition:.15s;font-size:15px}
+    .btn:hover{border-color:#3a4060;transform:translateY(-1px)}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),#5b8bff);
+      border:none;color:#fff;box-shadow:0 10px 30px -12px var(--accent)}
+    .btn-primary:hover{filter:brightness(1.08)}
+    .btn-ghost{background:transparent}
+
+    /* hero */
+    .hero{padding:80px 0 40px;text-align:center}
+    .pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+      border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px;margin-bottom:22px}
+    .pill .ok{color:var(--ok)}
+    h1{font-size:clamp(30px,5vw,52px);line-height:1.1;margin:0 0 18px;letter-spacing:-.02em;font-weight:800}
+    .lead{color:var(--muted);font-size:clamp(16px,2vw,20px);max-width:720px;margin:0 auto 30px}
+    .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+    .sub{margin-top:16px;color:var(--muted);font-size:13px}
+
+    /* sections */
+    section{padding:64px 0;border-top:1px solid var(--line)}
+    h2{font-size:clamp(22px,3vw,32px);margin:0 0 8px;letter-spacing:-.01em;font-weight:800}
+    .sec-sub{color:var(--muted);margin:0 0 34px;max-width:700px}
+
+    .grid{display:grid;gap:18px}
+    .g3{grid-template-columns:repeat(3,1fr)}
+    .g2{grid-template-columns:repeat(2,1fr)}
+    @media(max-width:900px){.g3{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){.g3,.g2{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+    .card h3{margin:0 0 8px;font-size:17px}
+    .card p{margin:0;color:var(--muted);font-size:14.5px}
+    .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+      background:var(--panel-2);border:1px solid var(--line);margin-bottom:14px;font-size:18px}
+
+    /* steps */
+    .steps{counter-reset:s;display:grid;gap:16px}
+    .step{display:flex;gap:16px;background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--radius);padding:20px}
+    .step .n{counter-increment:s;flex:0 0 34px;height:34px;border-radius:50%;
+      background:var(--panel-2);border:1px solid var(--line);display:grid;place-items:center;font-weight:700}
+    .step .n::before{content:counter(s)}
+    .step h3{margin:0 0 6px;font-size:16px}
+    .step p{margin:0;color:var(--muted);font-size:14.5px}
+
+    pre{background:#0d0f16;border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+      overflow-x:auto;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13.5px;color:#d7dbeb;margin:12px 0 0}
+    code{font-family:'JetBrains Mono',ui-monospace,monospace}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media(max-width:760px){.cols{grid-template-columns:1fr}}
+    .cols h3{font-size:15px;color:var(--muted);margin:0}
+
+    .download{background:linear-gradient(180deg,var(--panel-2),var(--panel));
+      border:1px solid var(--line);border-radius:22px;padding:36px;text-align:center}
+    .download .ver{color:var(--muted);font-size:14px;margin-bottom:20px}
+    .download .meta{color:var(--muted);font-size:13px;margin-top:14px}
+
+    .svc .card{border-color:#2a2f45}
+    .svc .price{color:var(--accent-2);font-weight:700;font-size:14px;margin-top:12px}
+
+    details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+    summary{cursor:pointer;font-weight:600}
+    details p{color:var(--muted);margin:10px 0 0;font-size:14.5px}
+
+    footer{border-top:1px solid var(--line);padding:36px 0;color:var(--muted);font-size:14px}
+    .foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+    footer a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+    footer a:hover{color:var(--text)}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="dot"></span> AI-ассистент</div>
+    <nav class="nav-links">
+      <a href="#features">Возможности</a>
+      <a href="#install">Установка</a>
+      <a href="#download">Скачать</a>
+      <a href="#services">Услуги</a>
+    </nav>
+    <a class="btn" href="https://github.com/yo-urun/ai-assistant" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</header>
+
+<div class="hero wrap">
+  <div class="pill"><span class="ok">●</span> Открытый исходный код · работает локально</div>
+  <h1>Персональный AI-ассистент<br><span class="grad">прямо в вашем Telegram</span></h1>
+  <p class="lead">
+    Self-hosted сборка: агент <b>OpenCode&nbsp;V2</b>, интерфейс в Telegram,
+    долговременная память и голос. Всё крутится у вас, данные никуда не уходят.
+    Для запуска нужен только <b>Docker</b>.
+  </p>
+  <div class="cta">
+    <a class="btn btn-primary" href="#download">⬇ Скачать</a>
+    <a class="btn" href="https://github.com/yo-urun/ai-assistant" target="_blank" rel="noopener">Исходники на GitHub</a>
+  </div>
+  <div class="sub">Без подписок и облаков · ваш ключ к LLM · установка в несколько шагов</div>
+</div>
+
+<section id="features" class="wrap">
+  <h2>Что внутри</h2>
+  <p class="sec-sub">Готовая обвязка из проверенных open-source проектов — без необходимости собирать всё с нуля.</p>
+  <div class="grid g3">
+    <div class="card"><div class="ico">🧠</div><h3>Ядро — OpenCode V2</h3><p>Провайдеры, модели, сессии, инструменты и права доступа из коробки.</p></div>
+    <div class="card"><div class="ico">💬</div><h3>Интерфейс — Telegram</h3><p>Общение текстом, голосом и файлами. Работает через long polling — не нужны домены и порты.</p></div>
+    <div class="card"><div class="ico">🗂️</div><h3>Долговременная память</h3><p>Graphiti + FalkorDB помнят пользователя между сессиями.</p></div>
+    <div class="card"><div class="ico">🎙️</div><h3>Голос</h3><p>Расшифровка голосовых через Whisper-совместимый API, опциональная озвучка ответов.</p></div>
+    <div class="card"><div class="ico">🔌</div><h3>Любой LLM</h3><p>OpenAI, OpenRouter, Anthropic, локальный Ollama — ваш ключ, ваш выбор модели.</p></div>
+    <div class="card"><div class="ico">🔒</div><h3>Приватность</h3><p>Всё на вашем VPS или локальной машине. Наружу — только трафик к Telegram и провайдеру.</p></div>
+  </div>
+</section>
+
+<section id="install" class="wrap">
+  <h2>Установка за несколько минут</h2>
+  <p class="sec-sub">Единственное требование — установленный Docker. Мастер сам спросит ключи и поднимет стек.</p>
+  <div class="steps">
+    <div class="step"><div class="n"></div><div><h3>Скачайте архив</h3><p>Кнопка ниже или <code>git clone</code> репозитория.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Установите Docker</h3><p>Docker Desktop для Windows/macOS или Docker Engine для Linux — один раз.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Запустите мастер</h3><p>Скрипт спросит токен бота, ключ LLM и настройки — секреты вводятся скрыто.</p></div></div>
+    <div class="step"><div class="n"></div><div><h3>Пишите боту в Telegram</h3><p>Готово. Логи и управление — командой <code>docker compose</code>.</p></div></div>
+  </div>
+
+  <div class="cols" style="margin-top:24px">
+    <div>
+      <h3>Windows (PowerShell)</h3>
+      <pre><code>git clone https://github.com/yo-urun/ai-assistant.git
+cd ai-assistant
+.\install.ps1</code></pre>
+    </div>
+    <div>
+      <h3>Linux / macOS</h3>
+      <pre><code>git clone https://github.com/yo-urun/ai-assistant.git
+cd ai-assistant
+chmod +x install.sh
+./install.sh</code></pre>
+    </div>
+  </div>
+  <p class="sec-sub" style="margin-top:18px">Для сервера есть неинтерактивный <code>deploy.sh</code>, готовые образы в GHCR и бэкапы — см. <a href="https://github.com/yo-urun/ai-assistant/blob/main/docs/deploy-vps.md" target="_blank" rel="noopener" style="text-decoration:underline">руководство по VPS</a>.</p>
+</section>
+
+<section id="download" class="wrap">
+  <h2>Скачать</h2>
+  <p class="sec-sub">Архив содержит весь проект: конфигурацию Docker, мастер установки, скрипты деплоя и документацию.</p>
+  <div class="download">
+    <div class="ver">Последняя версия: <b>v0.1.0</b></div>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/yo-urun/ai-assistant/releases/latest/download/ai-assistant-v0.1.0.zip">⬇ Скачать ZIP</a>
+      <a class="btn" href="https://github.com/yo-urun/ai-assistant/releases/latest" target="_blank" rel="noopener">Все релизы</a>
+    </div>
+    <div class="meta">
+      ZIP · ~30 КБ · все платформы · <a href="https://github.com/yo-urun/ai-assistant" target="_blank" rel="noopener" style="text-decoration:underline">исходный код на GitHub</a>
+    </div>
+  </div>
+</section>
+
+<section id="services" class="wrap svc">
+  <h2>Услуги</h2>
+  <p class="sec-sub">Проект бесплатный. Если не хотите возиться с настройкой — помогу внедрить и адаптировать под ваши задачи.</p>
+  <div class="grid g3">
+    <div class="card"><h3>Внедрение «под ключ»</h3><p>Разверну ассистента на вашем VPS или машине, подключу модель и память.</p><div class="price">по договорённости</div></div>
+    <div class="card"><h3>Кастомизация</h3><p>Свои сценарии, права агента, интеграции с CRM и базами, бренд и язык.</p><div class="price">по договорённости</div></div>
+    <div class="card"><h3>Хостинг и поддержка</h3><p>Мониторинг, бэкапы, обновления и приоритетная помощь.</p><div class="price">подписка / мес</div></div>
+  </div>
+  <div class="cta" style="justify-content:flex-start;margin-top:26px">
+    <!-- ЗАМЕНИТЕ контакты на свои -->
+    <a class="btn btn-primary" href="mailto:hello@takethe.space?subject=Внедрение%20AI-ассистента">Написать мне</a>
+    <a class="btn btn-ghost" href="https://t.me/takethe_space" target="_blank" rel="noopener">Telegram</a>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Частые вопросы</h2>
+  <details><summary>Нужен ли мощный сервер?</summary><p>Достаточно VPS на 2 vCPU / 2 ГБ RAM (комфортно 4 ГБ). На 1 ГБ сборка образов может не пройти — тогда используйте готовые образы из GHCR.</p></details>
+  <details><summary>Нужны ли домен и открытые порты?</summary><p>Нет. Бот работает через long polling, ассистент сам обращается к Telegram. Наружу открывать ничего не нужно.</p></details>
+  <details><summary>Куда уходят мои данные?</summary><p>Диалоги и память хранятся локально. Наружу уходят только запросы к Telegram и к выбранному вами LLM-провайдеру (и то, если используете облачную модель).</p></details>
+  <details><summary>Это бесплатно?</summary><p>Да, исходный код открыт (MIT). Платными являются только услуги по внедрению и поддержке — по желанию.</p></details>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      © <span id="year"></span> takethe.space · Открытый проект
+    </div>
+    <div>
+      Сборка использует <a href="https://github.com/grinev/opencode-telegram-bot" target="_blank" rel="noopener">opencode-telegram-bot</a> (MIT © Ruslan Grinev),
+      <a href="https://opencode.ai" target="_blank" rel="noopener">OpenCode</a>, Graphiti и FalkorDB.
+    </div>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent=new Date().getFullYear();</script>
+</body>
+</html>
