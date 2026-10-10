@@ -126,6 +126,9 @@ OPENAI_API_KEY=${D[OPENAI_API_KEY]}
 ANTHROPIC_API_KEY=${D[ANTHROPIC_API_KEY]}
 OPENROUTER_API_KEY=${D[OPENROUTER_API_KEY]}
 
+# --- Google Developers API (общий ключ, https://console.cloud.google.com) ---
+GOOGLE_API_KEY=
+
 # --- Голос: STT (Whisper-совместимый) ---
 STT_API_URL=${D[STT_API_URL]}
 STT_API_KEY=${D[STT_API_KEY]}

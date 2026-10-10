@@ -17,6 +17,8 @@ services:
       # Фоновый экстрактор памяти: куда писать и в какую группу графа.
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
       GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-main}
+      # Общий ключ Google Developers API (см. .env.example).
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     working_dir: /workspace
     volumes:
       # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.

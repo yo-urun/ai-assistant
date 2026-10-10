@@ -126,6 +126,9 @@ function Save-Env([hashtable]$m) {
     & $add "ANTHROPIC_API_KEY=$($m.ANTHROPIC_API_KEY)"
     & $add "OPENROUTER_API_KEY=$($m.OPENROUTER_API_KEY)"
     & $add ''
+    & $add '# --- Google Developers API (общий ключ, https://console.cloud.google.com) ---'
+    & $add 'GOOGLE_API_KEY='
+    & $add ''
     & $add '# --- Голос: STT (Whisper-совместимый) ---'
     & $add "STT_API_URL=$($m.STT_API_URL)"
     & $add "STT_API_KEY=$($m.STT_API_KEY)"
