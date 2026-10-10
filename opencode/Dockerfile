@@ -9,12 +9,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Ставим актуальный OpenCode V2 CLI.
-RUN npm install -g @opencode/cli
+ARG OPENCODE_CLI_VERSION=2.0.26
+RUN npm install -g "@opencode/cli@${OPENCODE_CLI_VERSION}"
 
 # Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
 # Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
 ARG EXTRACTOR_REPO=https://github.com/yo-urun/opencode-graphiti-extractor
-ARG EXTRACTOR_REF=v0.2.1
+ARG EXTRACTOR_REF=v0.3.0
 RUN git clone --depth 1 --branch ${EXTRACTOR_REF} ${EXTRACTOR_REPO} /opt/graphiti-extractor
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

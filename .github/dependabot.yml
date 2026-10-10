@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Базовые образы Dockerfile (node:22-slim) и образы в docker-compose.yml
+  # (falkordb/falkordb и др.). PR-ы уходят в develop.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: develop

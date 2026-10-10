@@ -1,0 +1,43 @@
+name: CI
+
+# Быстрые проверки сборки и конфигов: синтаксис скриптов, JSONC, валидность compose.
+# Образы не собираются — это работа images.yml.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax (install.sh, deploy.sh, scripts/*.sh)
+        run: |
+          for f in install.sh deploy.sh scripts/*.sh; do
+            echo "bash -n $f"
+            bash -n "$f"
+          done
+
+      - name: PowerShell syntax (install.ps1)
+        shell: pwsh
+        run: |
+          $errs = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/install.ps1", [ref]$null, [ref]$errs) | Out-Null
+          if ($errs.Count -gt 0) {
+            $errs | ForEach-Object { "line $($_.Extent.StartLineNumber): $($_.Message)" }
+            exit 1
+          }
+          Write-Host "install.ps1: parse OK"
+
+      - name: JSONC validity (opencode/opencode.jsonc)
+        run: node scripts/check-jsonc.mjs opencode/opencode.jsonc
+
+      - name: Compose config
+        run: |
+          cp .env.example .env
+          docker compose config > /dev/null
+          rm .env
