@@ -19,6 +19,25 @@ ARG CODE_INDEX_VERSION=0.36.3
 RUN npm install -g "open-codebase-index@${CODE_INDEX_VERSION}" \
     && command -v ocbi
 
+# Curated agent skills from mattpocock/skills (MIT), see docs/skills.md.
+# Baked into the global skills dir; pinned by commit SHA for reproducible builds.
+ARG SKILLS_REPO=https://github.com/mattpocock/skills
+ARG SKILLS_REF=49dd158d1076134a641b33efb035946536778336
+RUN set -eux; \
+    git init -q /tmp/skills \
+    && git -C /tmp/skills remote add origin "${SKILLS_REPO}" \
+    && git -C /tmp/skills fetch --depth 1 -q origin "${SKILLS_REF}" \
+    && git -C /tmp/skills checkout -q FETCH_HEAD; \
+    mkdir -p /root/.config/opencode/skills; \
+    for s in productivity/grilling productivity/grill-me productivity/handoff \
+             productivity/wait-what productivity/writing-for-agents \
+             engineering/grill-with-docs engineering/tdd engineering/diagnosing-bugs \
+             engineering/code-review engineering/research; do \
+      cp -r "/tmp/skills/skills/$s" /root/.config/opencode/skills/; \
+    done; \
+    rm -rf /tmp/skills; \
+    ls /root/.config/opencode/skills
+
 # Docker CLI + compose plugin: self-support mode (see docker-compose.selfhost.yml).
 # Pinned; amd64/arm64 via TARGETARCH (static docker downloads use x86_64/aarch64).
 ARG DOCKER_CLI_VERSION=29.3.1
