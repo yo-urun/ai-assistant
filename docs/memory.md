@@ -29,12 +29,21 @@ group_id            пространство имён (на FalkorDB = отде�
 | env (`docker-compose.yml`) | смысл | по умолчанию |
 |---|---|---|
 | `GRAPHITI_UPDATE_COMMUNITIES` | `update_communities=true` при ingest (инкрементальные кластеры) | `false` |
-| `GRAPHITI_ORGANIZE_EVERY_HOURS` | периодический `build_communities` (полная перестройка кластеров), `0` — выкл. | `24` |
+| `GRAPHITI_ORGANIZE_EVERY_HOURS` | периодический `build_communities` (полная перестройка кластеров), `0` — выкл. | `0` |
 | `GRAPHITI_SAGA_SCOPE` | `session` — сага на сессию; `project` — общая сага проекта | `session` |
 | `GRAPHITI_EXTRACTION_INSTRUCTIONS` | правила каноничного извлечения сущностей/связей | краткое правило из compose |
 
-> Самоупорядочивание «работает само»: кластеры обновляются при ingest и
-> периодически перестраиваются; саги связывают эпизоды во времени.
+> ⚠️ **Кластеризация сообществ сейчас выключена намеренно.** В Graphiti
+> `build_communities` / `update_communities` зависают на 100% CPU в контейнерном
+> деплое (известный баг: [getzep/graphiti#450](https://github.com/getzep/graphiti/issues/450),
+> PR #512 «removed community building in MCP»). Поэтому `ORGANIZE_EVERY_HOURS=0`
+> и `UPDATE_COMMUNITIES=false`. На MCP-сервере `graphiti-mcp-slim` (graphiti-core
+> 0.30.2) баг воспроизводится: прогон вешает сервер на hub-and-spoke графе.
+> Включайте эти опции только после апстрим-фикса.
+
+> Самоупорядочивание «работает само»: при включённой кластеризации кластеры
+> обновлялись бы при ingest и периодически; сейчас порядок обеспечивают
+> **онтология**, **каноничные имена** и **саги** (они не требуют communities).
 
 ## Онтология сервера (`config.yaml`)
 

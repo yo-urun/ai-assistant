@@ -18,12 +18,14 @@ services:
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
       GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-main}
       # Самоорганизация памяти (нужен экстрактор v0.4.0+, см. docs/memory.md):
-      #  - UPDATE_COMMUNITIES: инкрементально обновлять кластеры при ingest;
+      #  - UPDATE_COMMUNITIES: инкрементальные кластеры при ingest (сейчас ВЫКЛ:
+      #    известный баг Graphiti — build/update communities вешает MCP-сервер в
+      #    контейнере, getzep/graphiti#450);
       #  - ORGANIZE_EVERY_HOURS: периодическая перестройка кластеров (0 — выкл.);
       #  - SAGA_SCOPE: session | project — уровень саг (нить повествования);
       #  - EXTRACTION_INSTRUCTIONS: правила каноничного извлечения сущностей.
       GRAPHITI_UPDATE_COMMUNITIES: ${GRAPHITI_UPDATE_COMMUNITIES:-false}
-      GRAPHITI_ORGANIZE_EVERY_HOURS: ${GRAPHITI_ORGANIZE_EVERY_HOURS:-24}
+      GRAPHITI_ORGANIZE_EVERY_HOURS: ${GRAPHITI_ORGANIZE_EVERY_HOURS:-0}
       GRAPHITI_SAGA_SCOPE: ${GRAPHITI_SAGA_SCOPE:-session}
       GRAPHITI_EXTRACTION_INSTRUCTIONS: ${GRAPHITI_EXTRACTION_INSTRUCTIONS:-Use canonical entity names (one real-world object = one node). Prefer specific, typed relations; avoid vague Topic/Object when a precise name exists. Do not duplicate facts already in the graph.}
       # Общий ключ Google Developers API (см. .env.example).
