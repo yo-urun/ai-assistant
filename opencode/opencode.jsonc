@@ -21,6 +21,11 @@
     }
   },
 
+  // Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
+  // Установлен в образ по пути /opt/graphiti-extractor; читает GRAPHITI_URL и
+  // GRAPHITI_GROUP_ID из окружения. Захват идёт в фоне, без инъекции в контекст.
+  "plugins": ["/opt/graphiti-extractor"],
+
   "mcp": {
     "servers": {
       "graphiti": {

@@ -7,6 +7,8 @@
 - **[grinev/opencode-telegram-bot](https://github.com/grinev/opencode-telegram-bot)**
   (MIT © Ruslan Grinev) — Telegram-мост: сессии, голос, файлы, команды.
 - **Graphiti + FalkorDB** — долговременная память.
+- **[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)**
+  — фоновый автозахват памяти в Graphiti (без инъекции в контекст); встроен в образ `opencode`.
 - **Whisper-совместимый STT** — расшифровка голосовых (уже встроена в бот).
 
 Разворачивается одной командой. Ручной установки Python, баз данных и прочих
@@ -21,6 +23,8 @@
 - **Бэкапы**: `scripts/backup.sh` и `scripts/restore.sh`.
 - **systemd-юнит** для автозапуска на VPS.
 - Health-check OpenCode, профиль compose `memory` (память можно отключить).
+- **Автозахват памяти**: фоновый экстрактор пишет сессии в Graphiti (по завершении
+  хода, батчами), с дедупом и durable-очередью. Включён в base-сборку.
 
 ## Быстрый старт (локально)
 
@@ -79,7 +83,7 @@ chmod +x install.sh deploy.sh scripts/*.sh
 ├── opencode/
 │   ├── Dockerfile              образ OpenCode V2
 │   ├── entrypoint.sh           запуск сервера с фиксированным паролем
-│   └── opencode.jsonc          модель, агент, права, MCP graphiti
+│   └── opencode.jsonc          модель, агент, права, MCP, плагин-экстрактор
 ├── bot/Dockerfile              образ Telegram-бота (grinev)
 ├── install.ps1 / install.sh    мастера установки
 ├── deploy.sh                   серверный неинтерактивный деплой
@@ -99,6 +103,27 @@ chmod +x install.sh deploy.sh scripts/*.sh
   `docker compose restart opencode`.
 - **Сценарии и язык** — через `/settings` прямо в боте.
 - **Голос** — ключи `STT_*` в `.env`; озвучка — `TTS_*`.
+
+## Автозахват памяти
+
+В образ `opencode` встроен плагин
+[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)
+(MIT). Он в фоне (по завершении хода, с дебаунсом) сжимает новую часть сессии и
+отправляет её в Graphiti как эпизод — **без инъекции в контекст**, то есть без
+добавочных токенов и задержек в обычной работе. Управление — инструментом
+`memory` у агента: режимы `search`, `add`, `status`, `redrive`.
+
+Переменные в `.env`:
+
+- `GRAPHITI_URL` — куда писать (по умолчанию `http://graphiti:8000/mcp?codemode=false`);
+- `GRAPHITI_GROUP_ID` — группа графа (по умолчанию `main`).
+
+Захват требует профиль `memory` (Graphiti + FalkorDB). Плагин ставится при сборке
+образа `opencode` из GitHub — чтобы обновить его, пересоберите образ
+(`./deploy.sh --build`).
+
+> Обработку эпизодов (извлечение сущностей/связей) делает сам сервер Graphiti
+> асинхронно и, в зависимости от провайдера, не мгновенно.
 
 ## Готовые образы (GHCR)
 
@@ -127,6 +152,7 @@ ghcr.io/<owner>/<repo>-bot
   **MIT © Ruslan Grinev**. Текст лицензии положите в
   `licenses/opencode-telegram-bot.LICENSE` (ссылка в `licenses/README.md`).
 - OpenCode — [anomalyco/opencode](https://github.com/anomalyco/opencode).
+- Экстрактор памяти — [yo-urun/opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor), **MIT**.
 - Graphiti и FalkorDB — под своими лицензиями.
 
 Код обвязки в этом репозитории (compose, скрипты, конфиг) — под MIT (`LICENSE`).

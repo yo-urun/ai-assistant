@@ -1,10 +1,21 @@
 # ------------------------------------------------------------
-#  OpenCode V2 server.
+#  OpenCode V2 server + background memory extractor.
 # ------------------------------------------------------------
 FROM node:22-slim
 
+# git нужен, чтобы поставить плагин-экстрактор из GitHub при сборке.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Ставим актуальный OpenCode V2 CLI.
 RUN npm install -g @opencode/cli
+
+# Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
+# Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
+ARG EXTRACTOR_REPO=https://github.com/yo-urun/opencode-graphiti-extractor
+ARG EXTRACTOR_REF=main
+RUN git clone --depth 1 --branch ${EXTRACTOR_REF} ${EXTRACTOR_REPO} /opt/graphiti-extractor
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 # На случай CRLF из Windows — приводим к LF.
