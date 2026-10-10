@@ -32,6 +32,13 @@
         "type": "remote",
         "url": "http://graphiti:8000/mcp",
         "oauth": false
+      },
+      // Индексация кодовой базы: Serena (символ-уровень через LSP, 40+ языков).
+      // Выключена по умолчанию — включайте для КРУПНЫХ проектов (docs/code-indexing.md).
+      "serena": {
+        "type": "local",
+        "command": ["uvx", "--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--context", "ide-assistant"],
+        "enabled": false
       }
     }
   }

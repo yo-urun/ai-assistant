@@ -34,6 +34,22 @@ RUN set -eux; \
     docker --version \
     && docker compose version
 
+# uv: runtime for optional MCP servers (Serena code indexing, see docs/code-indexing.md).
+# Inert until the MCP server is enabled in config.
+ARG UV_VERSION=0.13.0
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) UV_ARCH="x86_64" ;; \
+      arm64) UV_ARCH="aarch64" ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}-unknown-linux-gnu.tar.gz" \
+      | tar xz -C /tmp \
+      && mv "/tmp/uv-${UV_ARCH}-unknown-linux-gnu/uv" /usr/local/bin/uv \
+      && mv "/tmp/uv-${UV_ARCH}-unknown-linux-gnu/uvx" /usr/local/bin/uvx \
+      && rm -rf /tmp/uv-*; \
+    uv --version
+
 # Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
 # Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
 ARG EXTRACTOR_REPO=https://github.com/yo-urun/opencode-graphiti-extractor
