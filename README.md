@@ -1,5 +1,7 @@
 # AI-ассистент (базовая сборка)
 
+[English](README.en.md) · **Русский** · [Srpski](README.sr.md)
+
 Готовая обвязка персонального AI-ассистента в Telegram:
 
 - **[OpenCode V2](https://opencode.ai)** — ядро агента: провайдеры, модели,
