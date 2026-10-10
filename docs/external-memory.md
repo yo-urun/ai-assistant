@@ -54,6 +54,48 @@ docker compose ps              # opencode и bot на месте
 Затем в боте: `/status` — и попросите ассистента вспомнить что-нибудь из
 давних разговоров. Ответ «помнит» — значит, внешний граф подхвачен.
 
+## Вариант: полностью самодостаточный kit с переносом данных
+
+Если цель — один стек в Docker без внешних зависимостей, можно перенести
+данные в собственные сервисы kit'а:
+
+1. Остановите старую пару (`docker stop graphiti-mcp falkordb`) — два
+   писателя в один том недопустимы.
+2. Подключите существующий том данных к `falkordb` из kit'а. Проще всего —
+   через `docker-compose.override.yml`:
+
+   ```yaml
+   services:
+     falkordb:
+       volumes:
+         - graphiti-falkordb-data:/var/lib/falkordb/data
+   volumes:
+     graphiti-falkordb-data:
+       external: true
+   ```
+
+3. **Сойдите эмбеддер.** Векторы в перенесённом графе посчитаны конкретной
+   моделью (например, `qwen/qwen3-embedding-8b` через OpenRouter). Поиск
+   сравнивает векторы, поэтому новый graphiti должен считать эмбеддинги тем
+   же эмбеддером — добавьте в `docker-compose.override.yml`:
+
+   ```yaml
+   services:
+     graphiti:
+       environment:
+         EMBEDDER_MODEL: qwen/qwen3-embedding-8b
+         OPENAI_API_URL: https://openrouter.ai/api/v1
+   ```
+
+   (имена переменных зависят от вашего образа Graphiti — сверьте с его
+   документацией/`docker inspect`).
+
+4. `COMPOSE_PROFILES=memory`, `GRAPHITI_URL` — дефолтный (внутренний
+   `graphiti`), `GRAPHITI_GROUP_ID` — прежний (`opencode`).
+
+После этого старые контейнеры можно удалить; данные живут в томе, который
+теперь обслуживает kit.
+
 ## Откат
 
 Хотите вернуться к самодостаточному kit'у — верните `COMPOSE_PROFILES=memory`
