@@ -101,6 +101,8 @@ chmod +x install.sh deploy.sh scripts/*.sh
 ## Настройка под себя
 
 - **Ключи: где брать и что обязательно** — [docs/keys.md](docs/keys.md).
+- **Скиллы инженерных практик** (`grill-me`, `tdd`, `code-review`...) — уже
+  в образе, вызываются через `/skills`; список — [docs/skills.md](docs/skills.md).
 - **Модель, права, память** — правьте `opencode/opencode.jsonc`
   (разрешить/запретить инструменты, добавить MCP-серверы), затем
   `docker compose restart opencode`.
