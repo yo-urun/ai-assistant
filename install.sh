@@ -78,6 +78,7 @@ declare -A D=(
   [OPENCODE_SERVER_VERSION]="v2" [OPENCODE_API_URL]="http://opencode:49374"
   [OPENCODE_SERVER_USERNAME]="opencode" [OPENCODE_SERVER_PASSWORD]=""
   [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini"
+  [WORKSPACE_DIR]=""
   [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]=""
   [STT_API_URL]="https://api.openai.com/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-1" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
@@ -120,6 +121,11 @@ OPENCODE_SERVER_PASSWORD=${D[OPENCODE_SERVER_PASSWORD]}
 # --- Модель OpenCode ---
 OPENCODE_MODEL_PROVIDER=${D[OPENCODE_MODEL_PROVIDER]}
 OPENCODE_MODEL_ID=${D[OPENCODE_MODEL_ID]}
+
+# --- Рабочая папка агента ---
+# Пусто - изолированный том /workspace. Путь к папке с кодом включает кодинг
+# с телефона: агент правит реальные файлы на диске. Прямые слэши.
+WORKSPACE_DIR=${D[WORKSPACE_DIR]}
 
 # --- Ключи провайдеров ---
 OPENAI_API_KEY=${D[OPENAI_API_KEY]}
@@ -223,6 +229,7 @@ D[GRAPHITI_IMAGE]="$(ask_value 'Образ Graphiti MCP' "${D[GRAPHITI_IMAGE]}")
 
 head '6. Прочее'
 if [[ -z "${D[OPENCODE_SERVER_PASSWORD]}" ]]; then D[OPENCODE_SERVER_PASSWORD]="$(gen_hex 24)"; ok 'Сгенерирован пароль для OpenCode Server V2.'; fi
+D[WORKSPACE_DIR]="$(ask_value 'Папка с кодом на хосте (пусто — изолированный /workspace)' "${D[WORKSPACE_DIR]}")"
 D[TZ]="$(ask_value 'Часовой пояс' "${D[TZ]}")"
 D[LOG_LEVEL]="$(ask_value 'Уровень логов (debug|info|warn|error)' "${D[LOG_LEVEL]}")"
 

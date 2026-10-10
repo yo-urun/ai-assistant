@@ -121,6 +121,11 @@ function Save-Env([hashtable]$m) {
     & $add "OPENCODE_MODEL_PROVIDER=$($m.OPENCODE_MODEL_PROVIDER)"
     & $add "OPENCODE_MODEL_ID=$($m.OPENCODE_MODEL_ID)"
     & $add ''
+    & $add '# --- Рабочая папка агента ---'
+    & $add '# Пусто - изолированный том /workspace. Путь к папке с кодом включает'
+    & $add '# кодинг с телефона: агент правит реальные файлы. Прямые слэши.'
+    & $add "WORKSPACE_DIR=$($m.WORKSPACE_DIR)"
+    & $add ''
     & $add '# --- Ключи провайдеров ---'
     & $add "OPENAI_API_KEY=$($m.OPENAI_API_KEY)"
     & $add "ANTHROPIC_API_KEY=$($m.ANTHROPIC_API_KEY)"
@@ -194,6 +199,7 @@ $d = @{
     OPENCODE_SERVER_PASSWORD = ''
     OPENCODE_MODEL_PROVIDER  = 'openai'
     OPENCODE_MODEL_ID        = 'gpt-4o-mini'
+    WORKSPACE_DIR            = ''
     OPENAI_API_KEY           = ''
     ANTHROPIC_API_KEY        = ''
     OPENROUTER_API_KEY       = ''
@@ -294,6 +300,7 @@ if ([string]::IsNullOrWhiteSpace($d.OPENCODE_SERVER_PASSWORD)) {
     $d.OPENCODE_SERVER_PASSWORD = New-Hex 24
     Ok 'Сгенерирован пароль для OpenCode Server V2.'
 }
+$d.WORKSPACE_DIR = AskValue 'Папка с кодом на хосте (пусто — изолированный /workspace)' $d.WORKSPACE_DIR
 $d.TZ        = AskValue 'Часовой пояс' $d.TZ
 $d.LOG_LEVEL = AskValue 'Уровень логов (debug|info|warn|error)' $d.LOG_LEVEL
 

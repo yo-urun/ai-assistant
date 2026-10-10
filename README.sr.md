@@ -1,8 +1,15 @@
-# AI asistent (osnovni paket)
+# AI asistent i koding agent u Telegramu (otvoreni self-hosted paket)
 
 [English](README.en.md) · [Русский](README.md) · **Srpski**
 
-Gotova obloga za ličnog AI asistenta u Telegramu:
+**Ovo nije proizvod — već otvoreni paket (base kit).** Koristi ga za sebe, za
+klijenta ili forkuj — MIT.
+
+Paket pretvara [OpenCode](https://opencode.ai) V2 u ličnog AI asistenta **i**
+koding agenta kojim upravljaš direktno iz Telegrama — uključujući i sa telefona.
+Dovoljan je samo Docker.
+
+Šta je unutra:
 
 - **[OpenCode V2](https://opencode.ai)** — jezgro agenta: provajderi, modeli,
   sesije, alati, MCP, dozvole.
@@ -17,6 +24,10 @@ Gotova obloga za ličnog AI asistenta u Telegramu:
 Postavlja se jednom komandom. Ručna instalacija Python-a, baza i ostalih zavisnosti
 nije potrebna — dovoljan je Docker.
 
+> Paket je nastao iz ličnog podešavanja: agent je sam sebe napisao dok je autor
+> ležao na kauču sa telefonom. Sa računara je trebalo samo postaviti Telegram most
+> (grinev).
+
 ## Mogućnosti
 
 - Čarobnjaci za instalaciju: `install.ps1` (Windows) i `install.sh` (macOS/Linux) —
@@ -29,6 +40,11 @@ nije potrebna — dovoljan je Docker.
 - **Automatsko snimanje memorije**: pozadinski ekstraktor upisuje sesije u Graphiti
   (po završetku poteza, u grupama), uz deduplikaciju i trajni red. Uključen u osnovni
   paket.
+- **Asistent i koder u jednom**: izaberi agenta tasterom u botu — `assistant`
+  za ćaskanje (bez izmena fajlova), ugrađeni `build` za kodiranje, `plan` za
+  planiranje bez izmena.
+- **Kodiranje sa telefona**: postavi `WORKSPACE_DIR` u `.env` — i agent menja prave
+  fajlove na tvom disku, a ne izolovani volumen.
 
 ## Brzi start (lokalno)
 
@@ -87,7 +103,7 @@ dijagnostika) — u **[docs/deploy-vps.md](docs/deploy-vps.md)**.
 ├── opencode/
 │   ├── Dockerfile              OpenCode V2 image
 │   ├── entrypoint.sh           pokreće server sa fiksnom lozinkom
-│   └── opencode.jsonc          model, agent, dozvole, MCP, plugin-ekstraktor
+│   └── opencode.jsonc          model, agenti, dozvole, MCP, plugin-ekstraktor
 ├── bot/Dockerfile              Telegram bot image (grinev)
 ├── install.ps1 / install.sh    čarobnjaci za instalaciju
 ├── deploy.sh                   neinteraktivni serverski deploy
@@ -102,8 +118,11 @@ dijagnostika) — u **[docs/deploy-vps.md](docs/deploy-vps.md)**.
 
 ## Prilagođavanje
 
-- **Model, dozvole, memorija** — menjaj `opencode/opencode.jsonc`
-  (dozvoli/zabrani alate, dodaj MCP servere), pa `docker compose restart opencode`.
+- **Model, agenti, dozvole, memorija** — menjaj `opencode/opencode.jsonc`
+  (agenti i njihove dozvole, dozvoli/zabrani alate, dodaj MCP servere), pa
+  `docker compose restart opencode`.
+- **Kodiranje sa telefona** — `WORKSPACE_DIR` u `.env` (apsolutna putanja do
+  foldera sa kodom, prave kose crte). Prazno — izolovani volumen `/workspace`.
 - **Scenariji i jezik** — preko `/settings` direktno u botu.
 - **Glas** — `STT_*` ključevi u `.env`; izgovor — `TTS_*`.
 
@@ -140,12 +159,20 @@ ghcr.io/<owner>/<repo>-bot
 Na VPS-u ih upiši u `.env` (`OPENCODE_IMAGE`, `BOT_IMAGE`) — tada `deploy.sh` radi
 bez lokalne izgradnje.
 
-## Ograničenja
+## Kodiranje sa telefona i ograničenja
+
+Samo kodiranje ide preko OpenCode API-ja, pa radi iz kontejnera: pišeš botu,
+ugrađeni `build` menja fajlove u `/workspace`, a odgovori i difovi
+stižu u čet.
+
+Da agent menja **tvoje** fajlove, a ne izolovani volumen, postavi `WORKSPACE_DIR` u
+`.env` — apsolutna putanja do foldera sa kodom (prave kose crte, npr.
+`C:/Users/me/project`). Taj folder se montira u `/workspace`.
 
 Komande bota kojima je potreban pristup fajl sistemu hosta — `/open`, `/ls`,
-`/worktree`, `/opencode_start`, `/opencode_stop` — nisu dostupne u kontejneru.
-Za scenario „asistent“ to nije kritično. Za „kodiranje sa telefona“ pokreni bota na
-hostu (vidi grinev dokumentaciju).
+`/worktree`, `/opencode_start`, `/opencode_stop` — nisu dostupne u kontejneru. To se
+odnosi na navigaciju kroz fajlove i pokretanje servera, ne na samo kodiranje. Ako su
+ti potrebne i one — pokreni bota na hostu (vidi grinev dokumentaciju).
 
 ## Povezani repozitorijumi
 

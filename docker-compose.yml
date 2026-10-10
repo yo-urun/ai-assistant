@@ -23,8 +23,11 @@ services:
       - ./opencode/opencode.jsonc:/root/.config/opencode/opencode.jsonc:ro
       # Состояние OpenCode: БД сессий и пр.
       - opencode_data:/root/.local/share/opencode
-      # Рабочая папка агента.
-      - workspace:/workspace
+      # Рабочая папка агента. По умолчанию — изолированный том `workspace`.
+      # Чтобы агент правил РЕАЛЬНЫЕ файлы у вас на диске (кодинг с телефона),
+      # задайте в .env абсолютный путь с прямыми слэшами, например
+      # WORKSPACE_DIR=C:/Users/me/project — папка смонтируется в /workspace.
+      - ${WORKSPACE_DIR:-workspace}:/workspace
     healthcheck:
       # Проверяем, что сервер слушает порт (без авторизации — достаточно TCP).
       test: ["CMD", "node", "-e", "const net=require('net');const s=net.connect(49374,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));"]

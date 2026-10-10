@@ -1,8 +1,15 @@
-# AI assistant (base kit)
+# AI assistant and coding agent in Telegram (open self-hosted kit)
 
 **English** · [Русский](README.md) · [Srpski](README.sr.md)
 
-A ready-made wrapper for a personal AI assistant in Telegram:
+**This is not a product — it is an open base kit.** Use it for yourself, for a
+client, or fork it. MIT.
+
+The kit turns [OpenCode](https://opencode.ai) V2 into your personal AI assistant
+**and** coding agent, driven straight from Telegram — including from your phone.
+Docker is all you need.
+
+What is inside:
 
 - **[OpenCode V2](https://opencode.ai)** — the agent core: providers, models,
   sessions, tools, MCP, permissions.
@@ -17,6 +24,10 @@ A ready-made wrapper for a personal AI assistant in Telegram:
 Deployed with a single command. No manual installation of Python, databases or
 other dependencies — Docker is enough.
 
+> The kit grew out of a personal setup: the agent built itself while the author
+> was on the couch with a phone. On the computer, only the Telegram bridge
+> (grinev) had to be installed.
+
 ## Features
 
 - Install wizards: `install.ps1` (Windows) and `install.sh` (macOS/Linux) —
@@ -29,6 +40,11 @@ other dependencies — Docker is enough.
 - **Automatic memory capture**: a background extractor writes sessions into
   Graphiti (on turn completion, in batches), with dedup and a durable queue.
   Included in the base kit.
+- **Assistant and coder in one**: pick the agent from the bot's keyboard —
+  `assistant` for chat (no file edits), the built-in `build` for coding,
+  `plan` for read-only planning.
+- **Code from your phone**: set `WORKSPACE_DIR` in `.env` and the agent edits
+  real files on your disk instead of an isolated volume.
 
 ## Quick start (local)
 
@@ -87,7 +103,7 @@ Full guide (firewall, prebuilt GHCR images, systemd, backups, proxy, diagnostics
 ├── opencode/
 │   ├── Dockerfile              OpenCode V2 image
 │   ├── entrypoint.sh           starts the server with a fixed password
-│   └── opencode.jsonc          model, agent, permissions, MCP, extractor plugin
+│   └── opencode.jsonc          model, agents, permissions, MCP, extractor plugin
 ├── bot/Dockerfile              Telegram bot image (grinev)
 ├── install.ps1 / install.sh    install wizards
 ├── deploy.sh                   non-interactive server deploy
@@ -102,8 +118,11 @@ Full guide (firewall, prebuilt GHCR images, systemd, backups, proxy, diagnostics
 
 ## Customization
 
-- **Model, permissions, memory** — edit `opencode/opencode.jsonc`
-  (allow/deny tools, add MCP servers), then `docker compose restart opencode`.
+- **Model, agents, permissions, memory** — edit `opencode/opencode.jsonc`
+  (agents and their permissions, allow/deny tools, add MCP servers), then
+  `docker compose restart opencode`.
+- **Code from your phone** — `WORKSPACE_DIR` in `.env` (absolute path to your
+  code folder, forward slashes). Empty means an isolated `/workspace` volume.
 - **Scenarios and language** — via `/settings` right in the bot.
 - **Voice** — `STT_*` keys in `.env`; speech output — `TTS_*`.
 
@@ -140,12 +159,20 @@ ghcr.io/<owner>/<repo>-bot
 On a VPS set them in `.env` (`OPENCODE_IMAGE`, `BOT_IMAGE`) — then `deploy.sh`
 works without a local build.
 
-## Limitations
+## Coding from your phone and limitations
 
-Bot commands that need host filesystem access — `/open`, `/ls`,
-`/worktree`, `/opencode_start`, `/opencode_stop` — are unavailable in the container.
-For the "assistant" scenario this is not critical. For "code from your phone", run
-the bot on the host (see the grinev documentation).
+Coding itself goes through the OpenCode API, so it works from the container: you
+message the bot, the `build` agent edits files in
+`/workspace`, and replies and diffs come back to the chat.
+
+To have the agent edit **your** files instead of an isolated volume, set
+`WORKSPACE_DIR` in `.env` to the absolute path of your code folder (forward
+slashes, e.g. `C:/Users/me/project`). That folder is mounted at `/workspace`.
+
+Bot commands that need host filesystem access — `/open`, `/ls`, `/worktree`,
+`/opencode_start`, `/opencode_stop` — are unavailable in the container. Those are
+about file navigation and starting the server, not about coding itself. If you
+need them too, run the bot on the host (see the grinev documentation).
 
 ## Related repositories
 
