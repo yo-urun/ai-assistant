@@ -12,6 +12,13 @@ RUN apt-get update \
 ARG OPENCODE_CLI_VERSION=2.0.26
 RUN npm install -g "@opencode/cli@${OPENCODE_CLI_VERSION}"
 
+# open-codebase-index: semantic code index (OpenCode native plugin, see docs/code-indexing.md).
+# Preinstalled but INERT: activates only per-project via "plugins" config;
+# autoIndex is false by default, so the embedder is never called on small projects.
+ARG CODE_INDEX_VERSION=0.36.3
+RUN npm install -g "open-codebase-index@${CODE_INDEX_VERSION}" \
+    && command -v ocbi
+
 # Docker CLI + compose plugin: self-support mode (see docker-compose.selfhost.yml).
 # Pinned; amd64/arm64 via TARGETARCH (static docker downloads use x86_64/aarch64).
 ARG DOCKER_CLI_VERSION=29.3.1
