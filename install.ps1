@@ -125,6 +125,9 @@ function Save-Env([hashtable]$m) {
     & $add "OPENAI_API_KEY=$($m.OPENAI_API_KEY)"
     & $add "ANTHROPIC_API_KEY=$($m.ANTHROPIC_API_KEY)"
     & $add "OPENROUTER_API_KEY=$($m.OPENROUTER_API_KEY)"
+    & $add "# Google Gemini. Достаточно одного из имён: GEMINI_API_KEY /"
+    & $add "# GOOGLE_GENERATIVE_AI_API_KEY / GOOGLE_API_KEY."
+    & $add "GEMINI_API_KEY=$($m.GEMINI_API_KEY)"
     & $add ''
     & $add '# --- Голос: STT (Whisper-совместимый) ---'
     & $add "STT_API_URL=$($m.STT_API_URL)"
@@ -197,6 +200,7 @@ $d = @{
     OPENAI_API_KEY           = ''
     ANTHROPIC_API_KEY        = ''
     OPENROUTER_API_KEY       = ''
+    GEMINI_API_KEY           = ''
     STT_API_URL              = 'https://api.openai.com/v1'
     STT_API_KEY              = ''
     STT_MODEL                = 'whisper-1'
@@ -234,6 +238,7 @@ $providers = @(
     @{ key = 'openai';     name = 'OpenAI';           model = 'gpt-4o-mini';            keyEnv = 'OPENAI_API_KEY';     stt = 'https://api.openai.com/v1' },
     @{ key = 'openrouter'; name = 'OpenRouter';       model = 'openai/gpt-4o-mini';     keyEnv = 'OPENROUTER_API_KEY'; stt = 'https://openrouter.ai/api/v1' },
     @{ key = 'anthropic';  name = 'Anthropic';        model = 'claude-3-5-sonnet-latest'; keyEnv = 'ANTHROPIC_API_KEY'; stt = 'https://api.openai.com/v1' },
+    @{ key = 'google';     name = 'Google Gemini (маркетинг/исследования)'; model = 'gemini-2.5-flash'; keyEnv = 'GEMINI_API_KEY'; stt = 'https://api.openai.com/v1' },
     @{ key = 'ollama';     name = 'Ollama (локально)';model = 'llama3.1';               keyEnv = '';                   stt = 'https://api.openai.com/v1' },
     @{ key = 'custom';     name = 'Свой вариант';     model = $d.OPENCODE_MODEL_ID;     keyEnv = 'OPENAI_API_KEY';     stt = $d.STT_API_URL }
 )

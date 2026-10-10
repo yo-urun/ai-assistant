@@ -7,6 +7,18 @@
   // Агент, который используется, если сессия не выбрала иной.
   "default_agent": "assistant",
 
+  // Дополнительный провайдер: Google Gemini ("google").
+  // Расширяет автономные возможности агента (маркетинг и исследования,
+  // текст/изображения, длинный контекст, grounding через Google Search).
+  // Ключ берётся из окружения (.env): достаточно ОДНОГО из имён ниже.
+  // Получить: https://aistudio.google.com/apikey
+  // Модель включается/выбирается в /models (например, google/gemini-2.5-flash).
+  "providers": {
+    "google": {
+      "env": ["GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "GOOGLE_API_KEY"]
+    }
+  },
+
   "agents": {
     "assistant": {
       "description": "Персональный ассистент в Telegram",

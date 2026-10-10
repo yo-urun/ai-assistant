@@ -17,6 +17,10 @@ services:
       # Фоновый экстрактор памяти: куда писать и в какую группу графа.
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
       GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-main}
+      # Google Gemini (маркетинг/исследования). Достаточно одного ключа в .env —
+      # можно вместо GEMINI_API_KEY задать GOOGLE_GENERATIVE_AI_API_KEY
+      # или GOOGLE_API_KEY (env_file передаёт и их).
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     working_dir: /workspace
     volumes:
       # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.

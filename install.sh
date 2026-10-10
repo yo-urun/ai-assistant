@@ -78,7 +78,7 @@ declare -A D=(
   [OPENCODE_SERVER_VERSION]="v2" [OPENCODE_API_URL]="http://opencode:49374"
   [OPENCODE_SERVER_USERNAME]="opencode" [OPENCODE_SERVER_PASSWORD]=""
   [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini"
-  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]=""
+  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [GEMINI_API_KEY]=""
   [STT_API_URL]="https://api.openai.com/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-1" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
   [FALKORDB_PASSWORD]=""
@@ -125,6 +125,9 @@ OPENCODE_MODEL_ID=${D[OPENCODE_MODEL_ID]}
 OPENAI_API_KEY=${D[OPENAI_API_KEY]}
 ANTHROPIC_API_KEY=${D[ANTHROPIC_API_KEY]}
 OPENROUTER_API_KEY=${D[OPENROUTER_API_KEY]}
+# Google Gemini. Достаточно одного из имён: GEMINI_API_KEY /
+# GOOGLE_GENERATIVE_AI_API_KEY / GOOGLE_API_KEY.
+GEMINI_API_KEY=${D[GEMINI_API_KEY]}
 
 # --- Голос: STT (Whisper-совместимый) ---
 STT_API_URL=${D[STT_API_URL]}
@@ -179,16 +182,18 @@ if [[ $YES -eq 0 ]]; then
   echo '   1) OpenAI'
   echo '   2) OpenRouter'
   echo '   3) Anthropic'
-  echo '   4) Ollama (локально)'
-  echo '   5) Свой вариант'
+  echo '   4) Google Gemini (маркетинг/исследования)'
+  echo '   5) Ollama (локально)'
+  echo '   6) Свой вариант'
   while :; do
     read -r -p 'Номер [1]: ' p < /dev/tty
     case "${p:-1}" in
       1) D[OPENCODE_MODEL_PROVIDER]=openai;     D[OPENCODE_MODEL_ID]=gpt-4o-mini; KEYENV=OPENAI_API_KEY;     STTDEF=http://x ;;
       2) D[OPENCODE_MODEL_PROVIDER]=openrouter; D[OPENCODE_MODEL_ID]=openai/gpt-4o-mini; KEYENV=OPENROUTER_API_KEY; STTDEF=http://x ;;
       3) D[OPENCODE_MODEL_PROVIDER]=anthropic;  D[OPENCODE_MODEL_ID]=claude-3-5-sonnet-latest; KEYENV=ANTHROPIC_API_KEY; STTDEF=http://x ;;
-      4) D[OPENCODE_MODEL_PROVIDER]=ollama;     D[OPENCODE_MODEL_ID]=llama3.1; KEYENV=""; STTDEF=http://x ;;
-      5) D[OPENCODE_MODEL_PROVIDER]=custom;     KEYENV=OPENAI_API_KEY; STTDEF=http://x ;;
+      4) D[OPENCODE_MODEL_PROVIDER]=google;     D[OPENCODE_MODEL_ID]=gemini-2.5-flash; KEYENV=GEMINI_API_KEY; STTDEF=http://x ;;
+      5) D[OPENCODE_MODEL_PROVIDER]=ollama;     D[OPENCODE_MODEL_ID]=llama3.1; KEYENV=""; STTDEF=http://x ;;
+      6) D[OPENCODE_MODEL_PROVIDER]=custom;     KEYENV=OPENAI_API_KEY; STTDEF=http://x ;;
       *) warn 'Введите номер из списка.'; continue ;;
     esac
     break
@@ -197,6 +202,7 @@ else
   case "${D[OPENCODE_MODEL_PROVIDER]}" in
     openrouter) KEYENV=OPENROUTER_API_KEY ;;
     anthropic)  KEYENV=ANTHROPIC_API_KEY ;;
+    google)     KEYENV=GEMINI_API_KEY ;;
     ollama)     KEYENV="" ;;
     *)          KEYENV=OPENAI_API_KEY ;;
   esac
