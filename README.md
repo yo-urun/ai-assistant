@@ -144,6 +144,12 @@ ghcr.io/<owner>/<repo>-bot
 Для сценария «ассистент» это не критично. Для «кодить с телефона» запускайте
 бота на хосте (см. документацию grinev).
 
+## Связанные репозитории
+
+- **[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)**
+  — фоновый экстрактор памяти (этот плагин **встроен** в base-сборку выше).
+- Сайт проекта: **[takethe.space/ai-assistant](https://takethe.space/ai-assistant)**.
+
 ## Лицензии и атрибуция
 
 Сборка **использует и распространяет** сторонние проекты:
