@@ -56,22 +56,15 @@ scripts/deps-bump.sh --dry-run
 5. На машине/VPS: `./deploy.sh` — он подтянет свежий код (`git pull`),
    образы (`compose pull`) и перекатит контейнеры (`up -d`).
 
-## Защита веток (настроить один раз в веб-интерфейсе)
+## Защита веток
 
-Локального `gh` нет, поэтому rulesets ставятся руками:
-Settings → Rules → Rulesets → New branch ruleset.
+Rulesets уже настроены через API (менять: Settings → Rules → Rulesets):
 
-Для `main` (ruleset "production"):
-- Bypass list: пусто (или только владелец в крайнем случае).
-- Require a pull request before merging: 1 approval (свой аппрув тоже считается,
-  если работать с другой ветки/аккаунта; в соло-режиме достаточно самого правила
-  «нельзя пушить напрямую»).
-- Require status checks: `CI / checks`.
-- Block force pushes, Block deletions.
-
-Для `develop` (ruleset "integration"):
-- Require status checks: `CI / checks`.
-- Block force pushes, Block deletions.
+- **`production-main`** (ветка `main`): изменения только через PR (апрувы не
+  требуются — соло-режим), обязательный статус-чек `CI / checks`, запрет
+  force-push и удаления ветки.
+- **`integration-develop`** (ветка `develop`): запрет force-push и удаления;
+  прямые пуши разрешены, CI гоняется на каждый пуш.
 
 ## Локальные проверки (те же, что в CI)
 
