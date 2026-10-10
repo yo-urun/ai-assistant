@@ -78,7 +78,7 @@ declare -A D=(
   [OPENCODE_SERVER_VERSION]="v2" [OPENCODE_API_URL]="http://opencode:49374"
   [OPENCODE_SERVER_USERNAME]="opencode" [OPENCODE_SERVER_PASSWORD]=""
   [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini"
-  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]=""
+  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [SELFHOST]="0" [HOST_FS_DIR]=""
   [STT_API_URL]="https://api.openai.com/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-1" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
   [FALKORDB_PASSWORD]=""
@@ -128,6 +128,12 @@ OPENROUTER_API_KEY=${D[OPENROUTER_API_KEY]}
 
 # --- Google Developers API (общий ключ, https://console.cloud.google.com) ---
 GOOGLE_API_KEY=
+
+# --- Self-support mode (docs/self-support.md) ---
+# 1 - агент из контейнера управляет Docker хоста и видит HOST_FS_DIR в /host;
+# deploy.sh автоматически подключит docker-compose.selfhost.yml.
+SELFHOST=${D[SELFHOST]}
+HOST_FS_DIR=${D[HOST_FS_DIR]}
 
 # --- Голос: STT (Whisper-совместимый) ---
 STT_API_URL=${D[STT_API_URL]}
@@ -226,6 +232,10 @@ D[GRAPHITI_IMAGE]="$(ask_value 'Образ Graphiti MCP' "${D[GRAPHITI_IMAGE]}")
 
 head '6. Прочее'
 if [[ -z "${D[OPENCODE_SERVER_PASSWORD]}" ]]; then D[OPENCODE_SERVER_PASSWORD]="$(gen_hex 24)"; ok 'Сгенерирован пароль для OpenCode Server V2.'; fi
+D[SELFHOST]="$(ask_value 'Режим самоподдержки: агент из контейнера управляет Docker хоста и видит папку хоста в /host (1/0)' "${D[SELFHOST]}")"
+if [[ "${D[SELFHOST]}" == "1" ]]; then
+  D[HOST_FS_DIR]="$(ask_value "Папка хоста, видимая агенту в /host (Enter — домашний каталог)" "${D[HOST_FS_DIR]:-$HOME}")"
+fi
 D[TZ]="$(ask_value 'Часовой пояс' "${D[TZ]}")"
 D[LOG_LEVEL]="$(ask_value 'Уровень логов (debug|info|warn|error)' "${D[LOG_LEVEL]}")"
 

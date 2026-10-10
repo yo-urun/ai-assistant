@@ -128,6 +128,9 @@ function Save-Env([hashtable]$m) {
     & $add ''
     & $add '# --- Google Developers API (общий ключ, https://console.cloud.google.com) ---'
     & $add 'GOOGLE_API_KEY='
+    & $add '# --- Self-support mode (docs/self-support.md) ---'
+    & $add "SELFHOST=$($m.SELFHOST)"
+    & $add "HOST_FS_DIR=$($m.HOST_FS_DIR)"
     & $add ''
     & $add '# --- Голос: STT (Whisper-совместимый) ---'
     & $add "STT_API_URL=$($m.STT_API_URL)"
@@ -200,6 +203,8 @@ $d = @{
     OPENAI_API_KEY           = ''
     ANTHROPIC_API_KEY        = ''
     OPENROUTER_API_KEY       = ''
+    SELFHOST                 = '0'
+    HOST_FS_DIR              = ''
     STT_API_URL              = 'https://api.openai.com/v1'
     STT_API_KEY              = ''
     STT_MODEL                = 'whisper-1'
@@ -296,6 +301,11 @@ Write-Head '6. Прочее'
 if ([string]::IsNullOrWhiteSpace($d.OPENCODE_SERVER_PASSWORD)) {
     $d.OPENCODE_SERVER_PASSWORD = New-Hex 24
     Ok 'Сгенерирован пароль для OpenCode Server V2.'
+}
+$d.SELFHOST  = AskValue 'Режим самоподдержки: агент из контейнера управляет Docker хоста и видит папку хоста в /host (1/0)' $d.SELFHOST
+if ($d.SELFHOST -eq '1') {
+  $defaultHostFs = $env:USERPROFILE -replace '\\', '/'
+  $d.HOST_FS_DIR = AskValue "Папка хоста, видимая агенту в /host (Enter — $defaultHostFs)" $defaultHostFs
 }
 $d.TZ        = AskValue 'Часовой пояс' $d.TZ
 $d.LOG_LEVEL = AskValue 'Уровень логов (debug|info|warn|error)' $d.LOG_LEVEL

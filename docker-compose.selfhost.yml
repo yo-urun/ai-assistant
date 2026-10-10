@@ -1,0 +1,17 @@
+# ------------------------------------------------------------
+#  Self-support mode: the containerized agent manages the host
+#  Docker daemon and can maintain its own kit (configs, git, rebuilds).
+#
+#  Enable explicitly:
+#    docker compose -f docker-compose.yml -f docker-compose.selfhost.yml up -d
+#
+#  WARNING: /var/run/docker.sock gives the agent FULL control over the
+#  Docker daemon (effectively root on the host). Enable consciously.
+#  The repo is mounted read-write at /kit (KIT_DIR overrides the path).
+# ------------------------------------------------------------
+services:
+  opencode:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${KIT_DIR:-.}:/kit
+      - ${HOST_FS_DIR:?set HOST_FS_DIR in .env (e.g. C:/Users/user)}:/host

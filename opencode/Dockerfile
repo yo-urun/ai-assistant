@@ -5,12 +5,34 @@ FROM node:22-slim
 
 # git нужен, чтобы поставить плагин-экстрактор из GitHub при сборке.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get install -y --no-install-recommends git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Ставим актуальный OpenCode V2 CLI.
 ARG OPENCODE_CLI_VERSION=2.0.26
 RUN npm install -g "@opencode/cli@${OPENCODE_CLI_VERSION}"
+
+# Docker CLI + compose plugin: self-support mode (see docker-compose.selfhost.yml).
+# Pinned; amd64/arm64 via TARGETARCH (static docker downloads use x86_64/aarch64).
+ARG DOCKER_CLI_VERSION=29.3.1
+ARG DOCKER_COMPOSE_VERSION=5.6.0
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) DC_ARCH="x86_64" ;; \
+      arm64) DC_ARCH="aarch64" ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${DC_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" \
+      | tar xz -C /tmp docker/docker \
+      && mv /tmp/docker/docker /usr/local/bin/docker \
+      && rm -rf /tmp/docker; \
+    mkdir -p /usr/local/lib/docker/cli-plugins; \
+    curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${DC_ARCH}" \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose; \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose; \
+    docker --version \
+    && docker compose version
 
 # Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
 # Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
