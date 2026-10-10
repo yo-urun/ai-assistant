@@ -53,6 +53,14 @@ step 'Конфигурация'
 chmod 600 "$ROOT/.env" 2>/dev/null || true
 ok '.env на месте'
 
+# --- Self-support mode: SELFHOST=1 в .env подключает docker-compose.selfhost.yml ---
+DC_ARGS=(-f docker-compose.yml)
+if [[ "$(get_env SELFHOST)" == "1" ]]; then
+  [[ -f "$ROOT/docker-compose.selfhost.yml" ]] || { fail 'docker-compose.selfhost.yml не найден'; exit 1; }
+  DC_ARGS+=(-f docker-compose.selfhost.yml)
+  ok 'Self-support mode: ON (агент управляет Docker и видит /host)'
+fi
+
 # --- 3. git pull ---
 if [[ $GITPULL -eq 1 && -d "$ROOT/.git" ]]; then
   step 'Обновление кода (git)'
@@ -67,14 +75,14 @@ GRAPHITI_IMAGE="$(get_env GRAPHITI_IMAGE)"
 
 if [[ $PULL -eq 1 ]]; then
   info 'docker compose pull ...'
-  if docker compose pull --ignore-pull-failures; then ok 'pull выполнен'; else warn 'pull с ошибками — при необходимости соберём локально'; BUILD=1; fi
+  if docker compose "${DC_ARGS[@]}" pull --ignore-pull-failures; then ok 'pull выполнен'; else warn 'pull с ошибками — при необходимости соберём локально'; BUILD=1; fi
 fi
 
 if [[ $BUILD -eq 1 ]] \
    || ! docker image inspect "$OPENCODE_IMAGE" >/dev/null 2>&1 \
    || ! docker image inspect "$BOT_IMAGE" >/dev/null 2>&1; then
   step 'Сборка образов на сервере'
-  docker compose build opencode bot
+  docker compose "${DC_ARGS[@]}" build opencode bot
 fi
 
 # --- 5. проверка образа памяти ---
@@ -82,7 +90,7 @@ if grep -qE '^COMPOSE_PROFILES=.*memory' "$ROOT/.env"; then
   step 'Память (Graphiti)'
   if ! docker image inspect "$GRAPHITI_IMAGE" >/dev/null 2>&1; then
     warn "Образ памяти '$GRAPHITI_IMAGE' не найден локально, пробую загрузить..."
-    if docker pull "$GRAPHITI_IMAGE" >/dev/null 2>&1 || docker compose pull graphiti >/dev/null 2>&1; then
+    if docker pull "$GRAPHITI_IMAGE" >/dev/null 2>&1 || docker compose "${DC_ARGS[@]}" pull graphiti >/dev/null 2>&1; then
       ok 'Образ памяти загружен'
     else
       fail "Не удалось получить образ памяти '$GRAPHITI_IMAGE'."
@@ -96,13 +104,13 @@ fi
 
 # --- 6. запуск ---
 step 'Запуск'
-docker compose up -d --remove-orphans
+docker compose "${DC_ARGS[@]}" up -d --remove-orphans
 
 # --- 7. ожидание OpenCode ---
 step 'Ожидание готовности OpenCode'
 ready=0
 for _ in $(seq 1 30); do
-  cid="$(docker compose ps -q opencode 2>/dev/null || true)"
+  cid="$(docker compose "${DC_ARGS[@]}" ps -q opencode 2>/dev/null || true)"
   if [[ -n "$cid" ]]; then
     status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"
     if [[ "$status" == "healthy" ]]; then ok 'OpenCode готов'; ready=1; break; fi
@@ -112,7 +120,7 @@ for _ in $(seq 1 30); do
 done
 [[ $ready -eq 1 ]] || warn 'OpenCode не подтвердил готовность за отведённое время.'
 
-docker compose ps
+docker compose "${DC_ARGS[@]}" ps
 
 echo
 ok 'Деплой завершён'
