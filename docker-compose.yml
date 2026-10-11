@@ -16,7 +16,7 @@ services:
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
       # Фоновый экстрактор памяти: куда писать и в какую группу графа.
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
-      GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-main}
+      GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-opencode}
       # Самоорганизация памяти (нужен экстрактор v0.4.0+, см. docs/memory.md):
       #  - UPDATE_COMMUNITIES: инкрементальные кластеры при ingest (сейчас ВЫКЛ:
       #    известный баг Graphiti — build/update communities вешает MCP-сервер в
@@ -28,6 +28,12 @@ services:
       GRAPHITI_ORGANIZE_EVERY_HOURS: ${GRAPHITI_ORGANIZE_EVERY_HOURS:-0}
       GRAPHITI_SAGA_SCOPE: ${GRAPHITI_SAGA_SCOPE:-session}
       GRAPHITI_EXTRACTION_INSTRUCTIONS: ${GRAPHITI_EXTRACTION_INSTRUCTIONS:-Use canonical entity names (one real-world object = one node). Prefer specific, typed relations; avoid vague Topic/Object when a precise name exists. Do not duplicate facts already in the graph.}
+      # Опциональный recall: инъекция памяти в контекст перед вызовом модели.
+      # off (по умолчанию) — ноль лишних токенов/задержек; start/turn включают.
+      GRAPHITI_RECALL: ${GRAPHITI_RECALL:-off}
+      GRAPHITI_RECALL_MAX_FACTS: ${GRAPHITI_RECALL_MAX_FACTS:-5}
+      GRAPHITI_RECALL_MAX_CHARS: ${GRAPHITI_RECALL_MAX_CHARS:-1200}
+      GRAPHITI_RECALL_TIMEOUT_MS: ${GRAPHITI_RECALL_TIMEOUT_MS:-800}
       # Общий ключ Google Developers API (см. .env.example).
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     working_dir: /workspace

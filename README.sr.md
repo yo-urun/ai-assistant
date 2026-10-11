@@ -119,7 +119,9 @@ kašnjenja u normalnom radu. Upravljanje — alatom `memory` kod agenta: režimi
 Promenljive u `.env`:
 
 - `GRAPHITI_URL` — gde se piše (podrazumevano `http://graphiti:8000/mcp?codemode=false`);
-- `GRAPHITI_GROUP_ID` — grupa grafa (podrazumevano `main`).
+- `GRAPHITI_GROUP_ID` — grupa grafa (podrazumevano `opencode`);
+- `GRAPHITI_RECALL` — `off` (podrazumevano, samo snimanje) · `start` · `turn` —
+  opciono ubacivanje memorije u kontekst (vidi [docs/memory.md](docs/memory.md)).
 
 Snimanje zahteva profil `memory` (Graphiti + FalkorDB). Plugin se instalira pri
 izgradnji `opencode` image-a sa GitHub-a — da ga ažuriraš, ponovo izgradi image

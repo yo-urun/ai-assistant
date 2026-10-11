@@ -79,7 +79,7 @@ RUN set -eux; \
 # Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
 # Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
 ARG EXTRACTOR_REPO=https://github.com/yo-urun/opencode-graphiti-extractor
-ARG EXTRACTOR_REF=v0.3.0
+ARG EXTRACTOR_REF=v0.4.0
 RUN git clone --depth 1 --branch ${EXTRACTOR_REF} ${EXTRACTOR_REPO} /opt/graphiti-extractor
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
