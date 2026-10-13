@@ -37,8 +37,8 @@ group_id            пространство имён (на FalkorDB = отде�
 > `build_communities` / `update_communities` зависают на 100% CPU в контейнерном
 > деплое (известный баг: [getzep/graphiti#450](https://github.com/getzep/graphiti/issues/450),
 > PR #512 «removed community building in MCP»). Поэтому `ORGANIZE_EVERY_HOURS=0`
-> и `UPDATE_COMMUNITIES=false`. На MCP-сервере `graphiti-mcp-slim` (graphiti-core
-> 0.30.2) баг воспроизводится: прогон вешает сервер на hub-and-spoke графе.
+> и `UPDATE_COMMUNITIES=false`. На MCP-серверах поверх graphiti-core 0.30.x
+> баг воспроизводится: прогон вешает сервер на hub-and-spoke графе.
 > Включайте эти опции только после апстрим-фикса.
 
 > Самоупорядочивание «работает само»: при включённой кластеризации кластеры
@@ -65,8 +65,9 @@ group_id            пространство имён (на FalkorDB = отде�
 
 ## Онтология сервера (`config.yaml`)
 
-Схема сущностей и связей задаётся на стороне Graphiti — в `config.yaml`
-(у нас: `~/graphiti-mcp/config.yaml`), ключи `graphiti.entity_types`,
+Схема сущностей и связей задаётся на стороне Graphiti MCP — в `config.yaml`
+(путь — на ваше усмотрение; при запуске через compose положите файл рядом с
+`docker-compose.yml`), ключи `graphiti.entity_types`,
 `graphiti.edge_types`, `graphiti.edge_type_map`. Типизированные рёбра
 удерживают граф предсказуемым, а коммуны — осмысленными.
 

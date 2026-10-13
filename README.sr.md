@@ -153,7 +153,7 @@ hostu (vidi grinev dokumentaciju).
 
 - **[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)**
   — pozadinski ekstraktor memorije (ovaj plugin je **ugrađen** u osnovni paket iznad).
-- Sajt projekta: **[takethe.space/ai-assistant](https://takethe.space/ai-assistant)**.
+- Repozitorijum: **[github.com/yo-urun/ai-assistant](https://github.com/yo-urun/ai-assistant)**.
 
 ## Licence i atribucija
 
