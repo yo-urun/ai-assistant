@@ -153,7 +153,7 @@ ghcr.io/<owner>/<repo>-bot
 
 - **[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)**
   — фоновый экстрактор памяти (этот плагин **встроен** в base-сборку выше).
-- Сайт проекта: **[takethe.space/ai-assistant](https://takethe.space/ai-assistant)**.
+- Репозиторий: **[github.com/yo-urun/ai-assistant](https://github.com/yo-urun/ai-assistant)**.
 
 ## Лицензии и атрибуция
 

@@ -24,7 +24,7 @@ OPENROUTER_API_KEY=sk-or-...   # если выбрали OpenRouter
 ## Модель по умолчанию
 
 `OPENCODE_MODEL_PROVIDER` и `OPENCODE_MODEL_ID` задают, какая модель отвечает.
-Примеры: `openai`/`gpt-4o-mini` (дёшево), `openrouter`/`z-ai/glm-5.3-flash`,
+Примеры: `openai`/`gpt-4o-mini` (дёшево), `openrouter`/`<модель из каталога>`,
 `anthropic`/`claude-3-5-sonnet-latest`. Можно менять на лету в боте: `/models`.
 
 ## Опциональные ключи

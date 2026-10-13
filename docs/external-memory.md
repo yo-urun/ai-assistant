@@ -75,19 +75,19 @@ docker compose ps              # opencode и bot на месте
    ```
 
 3. **Сойдите эмбеддер.** Векторы в перенесённом графе посчитаны конкретной
-   моделью (например, `qwen/qwen3-embedding-8b` через OpenRouter). Поиск
-   сравнивает векторы, поэтому новый graphiti должен считать эмбеддинги тем
-   же эмбеддером — добавьте в `docker-compose.override.yml`:
+   моделью. Поиск сравнивает векторы, поэтому новый Graphiti MCP должен считать
+   эмбеддинги **той же** моделью — задайте её в `.env` (или в
+   `docker-compose.override.yml`):
 
    ```yaml
    services:
      graphiti:
        environment:
-         EMBEDDER_MODEL: qwen/qwen3-embedding-8b
-         OPENAI_API_URL: https://openrouter.ai/api/v1
+         EMBEDDER_MODEL: <та-же-модель-эмбеддера>
+         OPENAI_API_URL: <OpenAI-совместимый-base-url>
    ```
 
-   (имена переменных зависят от вашего образа Graphiti — сверьте с его
+   (имена переменных зависят от вашей сборки Graphiti MCP — сверьте с её
    документацией/`docker inspect`).
 
 4. `COMPOSE_PROFILES=memory`, `GRAPHITI_URL` — дефолтный (внутренний

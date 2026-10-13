@@ -44,10 +44,11 @@
 
 ### Включение для одного проекта (три файла)
 
-**1. `.env` — тот же эмбеддер, что у памяти (OpenRouter):**
+**1. `.env` — ключ провайдера для эмбеддингов (OpenAI-совместимый):**
 
 ```env
-OPENROUTER_API_KEY=sk-or-...
+OPENAI_API_KEY=sk-...
+# OPENAI_BASE_URL=...   # если провайдер не OpenAI
 ```
 
 **2. В корне большого проекта — `.opencode/codebase-index.json`:**
@@ -56,19 +57,19 @@ OPENROUTER_API_KEY=sk-or-...
 {
   "embeddingProvider": "custom",
   "customProvider": {
-    "baseUrl": "https://openrouter.ai/api/v1",
-    "model": "qwen/qwen3-embedding-8b",
-    "dimensions": 4096,
-    "apiKey": "{env:OPENROUTER_API_KEY}",
+    "baseUrl": "<OpenAI-совместимый-base-url>",
+    "model": "<модель-эмбеддера>",
+    "dimensions": 1536,
+    "apiKey": "{env:OPENAI_API_KEY}",
     "maxTokens": 8192
   },
   "indexing": { "autoIndex": false, "requireProjectMarker": true }
 }
 ```
 
-`{env:OPENROUTER_API_KEY}` — ключ подставляется из окружения и никогда не
-попадает в файл проекта. `dimensions` = 4096 у `qwen3-embedding-8b`; если
-провайдер вернёт иное, `index_status` сообщит об этом явно.
+`{env:OPENAI_API_KEY}` — ключ подставляется из окружения и никогда не
+попадает в файл проекта. `dimensions` должно совпадать с размерностью выбранной
+модели; если провайдер вернёт иное, `index_status` сообщит об этом явно.
 
 **3. Там же — `opencode.json` с плагинами** (перечисляй оба: конфиг проекта
 может перекрыть глобальный список, а экстрактор памяти нужен всегда):
