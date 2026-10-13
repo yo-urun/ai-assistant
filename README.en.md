@@ -151,7 +151,7 @@ the bot on the host (see the grinev documentation).
 
 - **[opencode-graphiti-extractor](https://github.com/yo-urun/opencode-graphiti-extractor)**
   — background memory extractor (this plugin is **bundled** into the base kit above).
-- Project site: **[takethe.space/ai-assistant](https://takethe.space/ai-assistant)**.
+- Repository: **[github.com/yo-urun/ai-assistant](https://github.com/yo-urun/ai-assistant)**.
 
 ## Licenses and attribution
 
