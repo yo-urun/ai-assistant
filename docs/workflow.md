@@ -24,8 +24,14 @@
 | Что | Где пин | Откуда берётся новая версия |
 |---|---|---|
 | OpenCode CLI | `ARG OPENCODE_CLI_VERSION` в `opencode/Dockerfile` | npm `@opencode/cli` |
-| Telegram-бот (grinev) | `ARG BOT_VERSION` в `bot/Dockerfile` | npm `@grinev/opencode-telegram-bot` |
+| Telegram-бот (grinev) | `ARG BOT_REF` (git-тег) в `bot/Dockerfile` | релизы `grinev/opencode-telegram-bot` |
 | Экстрактор памяти | `ARG EXTRACTOR_REF` в `opencode/Dockerfile` | релизы `yo-urun/opencode-graphiti-extractor` |
+
+Бот собирается из исходников пин-тега плюс локальные патчи
+`bot/patches/*.patch` — тонкий слой правок к апстриму
+(см. `bot/patches/README.md`). Перед открытием PR на bump `BOT_REF` deps-бот
+проверяет, что патчи применяются (`scripts/check-fork-patches.sh`); если нет —
+PR не создаётся, патч надо отребейзить вручную.
 
 Ежедневно (cron) запускается **deps-бот** (`.github/workflows/deps.yml` →
 `scripts/deps-bump.sh`): сверяет пины с апстримом и на каждое расхождение
@@ -72,6 +78,7 @@ Rulesets уже настроены через API (менять: Settings → Ru
 for f in install.sh deploy.sh scripts/*.sh; do bash -n "$f"; done   # bash
 pwsh -c "[System.Management.Automation.Language.Parser]::ParseFile(...)"  # см. ci.yml
 node scripts/check-jsonc.mjs opencode/opencode.jsonc                # JSONC
+bash scripts/check-fork-patches.sh                                  # патчи бота
 cp .env.example .env && docker compose config > /dev/null && rm .env
 ```
 

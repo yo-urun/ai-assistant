@@ -72,6 +72,10 @@ services:
     environment:
       HOME: /data
       OPENCODE_TELEGRAM_CONTAINER: "1"
+      # Стартовый агент свежей установки (нужен патч bot/patches/0001-...):
+      # chat — режим мозговых штурмов и консультаций, см. docs/chat-mode.md.
+      # На существующих установках уже сохранённый агент не перетирается.
+      INITIAL_SETTINGS_PRESET: '{"currentAgent":"chat"}'
     volumes:
       - bot_data:/data
     depends_on:

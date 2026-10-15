@@ -1,0 +1,30 @@
+diff --git a/src/app/stores/settings-store.ts b/src/app/stores/settings-store.ts
+index 58c320b..15eed03 100644
+--- a/src/app/stores/settings-store.ts
++++ b/src/app/stores/settings-store.ts
+@@ -358,6 +358,7 @@ const VALID_STREAMING_MODES: readonly ResponseStreamingMode[] = ["edit", "draft"
+ 
+ function applyInitialSettingsPreset(preset: Record<string, unknown>): void {
+   const knownKeys = new Set([
++    "currentAgent",
+     "ttsMode",
+     "compactOutputMode",
+     "deleteCompactProgressOnFinish",
+@@ -375,7 +376,16 @@ function applyInitialSettingsPreset(preset: Record<string, unknown>): void {
+         `INITIAL_SETTINGS_PRESET: unknown key "${key}". Supported keys: ${[...knownKeys].join(", ")}.`,
+       );
+     }
+-    if (key === "ttsMode") {
++    if (key === "currentAgent") {
++      if (typeof value !== "string" || value.trim().length === 0) {
++        throw new Error(
++          `INITIAL_SETTINGS_PRESET: invalid value for "currentAgent"; expected a non-empty string.`,
++        );
++      }
++      if (currentSettings.currentAgent === undefined) {
++        currentSettings.currentAgent = value.trim();
++      }
++    } else if (key === "ttsMode") {
+       if (typeof value !== "string" || !VALID_TTS_MODES.includes(value as TtsMode)) {
+         throw new Error(
+           `INITIAL_SETTINGS_PRESET: invalid value for "ttsMode"; expected one of ${VALID_TTS_MODES.join(", ")}.`,

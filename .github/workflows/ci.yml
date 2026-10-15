@@ -36,6 +36,9 @@ jobs:
       - name: JSONC validity (opencode/opencode.jsonc)
         run: node scripts/check-jsonc.mjs opencode/opencode.jsonc
 
+      - name: Bot fork patches apply
+        run: bash scripts/check-fork-patches.sh
+
       - name: Compose config
         run: |
           cp .env.example .env

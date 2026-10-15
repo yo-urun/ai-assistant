@@ -1,7 +1,7 @@
 name: Dependency updates
 
 # Ежедневная сверка запиненных зависимостей с апстримом (@opencode/cli,
-# @grinev/opencode-telegram-bot, yo-urun/opencode-graphiti-extractor).
+# grinev/opencode-telegram-bot, yo-urun/opencode-graphiti-extractor).
 # Расхождение -> отдельный PR в develop. Логика: scripts/deps-bump.sh.
 # Ручной запуск: Actions -> Dependency updates -> Run workflow (там же --dry-run не нужен:
 # для просмотра расхождений без PR запустите скрипт локально с --dry-run).

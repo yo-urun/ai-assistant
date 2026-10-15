@@ -8,8 +8,11 @@
 #
 # Отслеживаемое:
 #   @opencode/cli                     -> ARG OPENCODE_CLI_VERSION в opencode/Dockerfile
-#   @grinev/opencode-telegram-bot     -> ARG BOT_VERSION в bot/Dockerfile
+#   grinev/opencode-telegram-bot      -> ARG BOT_REF (git-тег) в bot/Dockerfile
 #   yo-urun/opencode-graphiti-extractor -> ARG EXTRACTOR_REF в opencode/Dockerfile
+#
+# Бот собирается из исходников пин-тега с локальными патчами (bot/patches), поэтому
+# bump BOT_REF дополнительно проверяет, что патчи всё ещё применяются.
 #
 set -euo pipefail
 
@@ -56,9 +59,9 @@ bump opencode-cli \
   "https://www.npmjs.com/package/@opencode/cli"
 
 bump opencode-telegram-bot \
-  bot/Dockerfile BOT_VERSION \
-  "$(latest_npm @grinev/opencode-telegram-bot)" \
-  "https://www.npmjs.com/package/@grinev/opencode-telegram-bot"
+  bot/Dockerfile BOT_REF \
+  "$(latest_gh grinev/opencode-telegram-bot)" \
+  "https://github.com/grinev/opencode-telegram-bot/releases"
 
 bump graphiti-extractor \
   opencode/Dockerfile EXTRACTOR_REF \
@@ -93,6 +96,14 @@ for entry in "${BUMPS[@]}"; do
   git switch -C "$branch" "origin/${BASE_BRANCH}" 2>/dev/null || git switch -C "$branch" "$BASE_BRANCH"
 
   sed -i "s/^ARG ${var}=.*/ARG ${var}=${latest}/" "$file"
+
+  # Бот собирается из пин-тега с патчами: bump без их совместимости ломает образ.
+  if [[ "$var" == "BOT_REF" ]] && ! bash scripts/check-fork-patches.sh; then
+    echo "!! патчи bot/patches не применяются к ${latest} — нужен ручной ребейз" >&2
+    git checkout -- "$file"
+    exit 1
+  fi
+
   git add "$file"
   git commit -m "deps: bump ${name} ${cur} -> ${latest}"
   git push -u origin "$branch"
