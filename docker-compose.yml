@@ -40,6 +40,8 @@ services:
     volumes:
       # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.
       - ./opencode/opencode.jsonc:/root/.config/opencode/opencode.jsonc:ro
+      # Свои агенты (markdown, напр. режим чата). Правьте и перезапускайте.
+      - ./opencode/agents:/root/.config/opencode/agents:ro
       # Состояние OpenCode: БД сессий и пр.
       - opencode_data:/root/.local/share/opencode
       # Рабочая папка агента.

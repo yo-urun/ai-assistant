@@ -25,6 +25,8 @@
 - **Бэкапы**: `scripts/backup.sh` и `scripts/restore.sh`.
 - **systemd-юнит** для автозапуска на VPS.
 - Health-check OpenCode, профиль compose `memory` (память можно отключить).
+- **Три режима** через агентов: `chat` (мозговые штурмы, гипотезы,
+  консультации — по умолчанию), `plan` и `build` — [docs/chat-mode.md](docs/chat-mode.md).
 - **Автозахват памяти**: фоновый экстрактор пишет сессии в Graphiti (по завершении
   хода, батчами), с дедупом и durable-очередью. Включён в base-сборку.
 
@@ -85,7 +87,8 @@ chmod +x install.sh deploy.sh scripts/*.sh
 ├── opencode/
 │   ├── Dockerfile              образ OpenCode V2
 │   ├── entrypoint.sh           запуск сервера с фиксированным паролем
-│   └── opencode.jsonc          модель, агент, права, MCP, плагин-экстрактор
+│   ├── agents/chat.md          режим чата (мозговые штурмы, память)
+│   └── opencode.jsonc          модель, агент по умолчанию, MCP, плагин-экстрактор
 ├── bot/Dockerfile              образ Telegram-бота (grinev)
 ├── install.ps1 / install.sh    мастера установки
 ├── deploy.sh                   серверный неинтерактивный деплой
@@ -106,6 +109,8 @@ chmod +x install.sh deploy.sh scripts/*.sh
 - **Модель, права, память** — правьте `opencode/opencode.jsonc`
   (разрешить/запретить инструменты, добавить MCP-серверы), затем
   `docker compose restart opencode`.
+- **Режим чата и другие агенты** — правьте `opencode/agents/*.md` (промпт,
+  права, `steps`), затем `docker compose restart opencode`.
 - **Сценарии и язык** — через `/settings` прямо в боте.
 - **Голос** — ключи `STT_*` в `.env`; озвучка — `TTS_*`.
 

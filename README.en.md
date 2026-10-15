@@ -26,6 +26,8 @@ other dependencies — Docker is enough.
 - **Backups**: `scripts/backup.sh` and `scripts/restore.sh`.
 - **systemd unit** for autostart on a VPS.
 - OpenCode health-check, compose profile `memory` (memory can be disabled).
+- **Three modes** via agents: `chat` (brainstorming, hypotheses, consulting —
+  the default), `plan` and `build` — [docs/chat-mode.md](docs/chat-mode.md).
 - **Automatic memory capture**: a background extractor writes sessions into
   Graphiti (on turn completion, in batches), with dedup and a durable queue.
   Included in the base kit.
@@ -87,7 +89,8 @@ Full guide (firewall, prebuilt GHCR images, systemd, backups, proxy, diagnostics
 ├── opencode/
 │   ├── Dockerfile              OpenCode V2 image
 │   ├── entrypoint.sh           starts the server with a fixed password
-│   └── opencode.jsonc          model, agent, permissions, MCP, extractor plugin
+│   ├── agents/chat.md          chat mode (brainstorming, memory)
+│   └── opencode.jsonc          model, default agent, MCP, extractor plugin
 ├── bot/Dockerfile              Telegram bot image (grinev)
 ├── install.ps1 / install.sh    install wizards
 ├── deploy.sh                   non-interactive server deploy
@@ -104,6 +107,8 @@ Full guide (firewall, prebuilt GHCR images, systemd, backups, proxy, diagnostics
 
 - **Model, permissions, memory** — edit `opencode/opencode.jsonc`
   (allow/deny tools, add MCP servers), then `docker compose restart opencode`.
+- **Chat mode and other agents** — edit `opencode/agents/*.md` (prompt,
+  permissions, `steps`), then `docker compose restart opencode`.
 - **Scenarios and language** — via `/settings` right in the bot.
 - **Voice** — `STT_*` keys in `.env`; speech output — `TTS_*`.
 

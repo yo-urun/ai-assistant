@@ -26,6 +26,8 @@ nije potrebna — dovoljan je Docker.
 - **Rezervne kopije**: `scripts/backup.sh` i `scripts/restore.sh`.
 - **systemd unit** za automatsko pokretanje na VPS-u.
 - OpenCode health-check, compose profil `memory` (memorija se može isključiti).
+- **Tri režima** preko agenata: `chat` (brainstorming, hipoteze, konsultacije —
+  podrazumevano), `plan` i `build` — [docs/chat-mode.md](docs/chat-mode.md).
 - **Automatsko snimanje memorije**: pozadinski ekstraktor upisuje sesije u Graphiti
   (po završetku poteza, u grupama), uz deduplikaciju i trajni red. Uključen u osnovni
   paket.
@@ -87,7 +89,8 @@ dijagnostika) — u **[docs/deploy-vps.md](docs/deploy-vps.md)**.
 ├── opencode/
 │   ├── Dockerfile              OpenCode V2 image
 │   ├── entrypoint.sh           pokreće server sa fiksnom lozinkom
-│   └── opencode.jsonc          model, agent, dozvole, MCP, plugin-ekstraktor
+│   ├── agents/chat.md          režim ćaskanja (brainstorming, memorija)
+│   └── opencode.jsonc          model, podrazumevani agent, MCP, plugin-ekstraktor
 ├── bot/Dockerfile              Telegram bot image (grinev)
 ├── install.ps1 / install.sh    čarobnjaci za instalaciju
 ├── deploy.sh                   neinteraktivni serverski deploy
@@ -104,6 +107,8 @@ dijagnostika) — u **[docs/deploy-vps.md](docs/deploy-vps.md)**.
 
 - **Model, dozvole, memorija** — menjaj `opencode/opencode.jsonc`
   (dozvoli/zabrani alate, dodaj MCP servere), pa `docker compose restart opencode`.
+- **Režim ćaskanja i drugi agenti** — menjaj `opencode/agents/*.md` (prompt,
+  dozvole, `steps`), pa `docker compose restart opencode`.
 - **Scenariji i jezik** — preko `/settings` direktno u botu.
 - **Glas** — `STT_*` ključevi u `.env`; izgovor — `TTS_*`.
 
