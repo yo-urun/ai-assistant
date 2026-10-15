@@ -1,0 +1,269 @@
+diff --git a/src/app/types/agent.ts b/src/app/types/agent.ts
+index 933f5d8..61d11e5 100644
+--- a/src/app/types/agent.ts
++++ b/src/app/types/agent.ts
+@@ -21,6 +21,7 @@ export interface AgentInfo {
+ export const AGENT_EMOJI: Record<string, string> = {
+   plan: "📋",
+   build: "🛠️",
++  chat: "💬",
+   general: "💬",
+   explore: "🔍",
+   title: "📝",
+diff --git a/src/bot/callbacks/agent-selection-callback-handler.ts b/src/bot/callbacks/agent-selection-callback-handler.ts
+index 9c3705d..9f2ef5f 100644
+--- a/src/bot/callbacks/agent-selection-callback-handler.ts
++++ b/src/bot/callbacks/agent-selection-callback-handler.ts
+@@ -1,4 +1,4 @@
+-import { Context } from "grammy";
++import { Context, type Keyboard } from "grammy";
+ import type { AppContainer } from "../../app/bootstrap/app-container.js";
+ import {
+   applyAgentConfiguredSettings,
+@@ -23,6 +23,67 @@ export type AgentSelectDeps = Pick<
+   "interactionManager" | "keyboardManager" | "pinnedMessageManager"
+ >;
+ 
++export interface AgentSelectionResult {
++  /** Reply keyboard reflecting the new agent, model and context. */
++  keyboard: Keyboard;
++  /** Confirmation text ("Agent switched to …"). */
++  text: string;
++  /** Whether the agent's configured model/variant was applied. */
++  settingsApplied: boolean;
++}
++
++/**
++ * Switch the current agent and build the reply keyboard for the new state.
++ * Shared by the inline agent menu and the reply-keyboard chat shortcut: the
++ * feedback differs (callback toast vs. plain reply), so it is left to callers.
++ */
++export async function applyAgentSelection(
++  ctx: Context,
++  deps: AgentSelectDeps,
++  agentName: string,
++): Promise<AgentSelectionResult> {
++  if (ctx.chat) {
++    deps.keyboardManager.initialize(ctx.api, ctx.chat.id);
++  }
++
++  if (deps.pinnedMessageManager.getContextLimit() === 0) {
++    await deps.pinnedMessageManager.refreshContextLimit();
++  }
++
++  selectAgent(agentName);
++  const settingsApplied = await applyAgentConfiguredSettings(agentName);
++
++  deps.keyboardManager.updateAgent(agentName);
++
++  const currentModel = getStoredModel();
++  const contextInfo =
++    deps.pinnedMessageManager.getContextInfo() ??
++    (deps.pinnedMessageManager.getContextLimit() > 0
++      ? { tokensUsed: 0, tokensLimit: deps.pinnedMessageManager.getContextLimit() }
++      : null);
++
++  deps.keyboardManager.updateModel(currentModel);
++  if (contextInfo) {
++    deps.keyboardManager.updateContext(contextInfo.tokensUsed, contextInfo.tokensLimit);
++  }
++
++  const state = deps.keyboardManager.getState();
++  const variantName =
++    state?.variantName ?? formatVariantForButton(currentModel.variant || "default");
++  const keyboard = createMainKeyboard(
++    agentName,
++    currentModel,
++    contextInfo ?? undefined,
++    variantName,
++  );
++
++  return {
++    keyboard,
++    text: t("agent.changed_message", { name: getAgentDisplayName(agentName) }),
++    settingsApplied,
++  };
++}
++
+ export async function handleAgentSelect(ctx: Context, deps: AgentSelectDeps): Promise<boolean> {
+   const callbackQuery = ctx.callbackQuery;
+ 
+@@ -38,47 +99,17 @@ export async function handleAgentSelect(ctx: Context, deps: AgentSelectDeps): Pr
+   logger.debug(`[AgentHandler] Received callback: ${callbackQuery.data}`);
+ 
+   try {
+-    if (ctx.chat) {
+-      deps.keyboardManager.initialize(ctx.api, ctx.chat.id);
+-    }
+-
+-    if (deps.pinnedMessageManager.getContextLimit() === 0) {
+-      await deps.pinnedMessageManager.refreshContextLimit();
+-    }
+-
+     const agentName = callbackQuery.data.replace("agent:", "");
+ 
+-    selectAgent(agentName);
+-    const settingsApplied = await applyAgentConfiguredSettings(agentName);
+-
+-    deps.keyboardManager.updateAgent(agentName);
+-
+-    const currentModel = getStoredModel();
+-    const contextInfo =
+-      deps.pinnedMessageManager.getContextInfo() ??
+-      (deps.pinnedMessageManager.getContextLimit() > 0
+-        ? { tokensUsed: 0, tokensLimit: deps.pinnedMessageManager.getContextLimit() }
+-        : null);
+-
+-    deps.keyboardManager.updateModel(currentModel);
+-    if (contextInfo) {
+-      deps.keyboardManager.updateContext(contextInfo.tokensUsed, contextInfo.tokensLimit);
+-    }
+-
+-    const state = deps.keyboardManager.getState();
+-    const variantName =
+-      state?.variantName ?? formatVariantForButton(currentModel.variant || "default");
+-    const keyboard = createMainKeyboard(
++    const { keyboard, text, settingsApplied } = await applyAgentSelection(
++      ctx,
++      deps,
+       agentName,
+-      currentModel,
+-      contextInfo ?? undefined,
+-      variantName,
+     );
+-    const displayName = getAgentDisplayName(agentName);
+ 
+     clearActiveInlineMenu("agent_selected", deps);
+ 
+-    await switched(ctx, t("agent.changed_message", { name: displayName }), keyboard);
++    await switched(ctx, text, keyboard);
+ 
+     if (settingsApplied) {
+       await deps.pinnedMessageManager.refresh();
+diff --git a/src/bot/keyboards/main-reply-keyboard.ts b/src/bot/keyboards/main-reply-keyboard.ts
+index 0e1a251..c1766c2 100644
+--- a/src/bot/keyboards/main-reply-keyboard.ts
++++ b/src/bot/keyboards/main-reply-keyboard.ts
+@@ -1,5 +1,6 @@
+ import { Keyboard } from "grammy";
+ import { getAgentButtonLabel } from "../../app/types/agent.js";
++import { CHAT_MODE_BUTTON_TEXT } from "../message-patterns.js";
+ import { formatModelForButton } from "../../app/types/model.js";
+ import type { ModelInfo } from "../../app/types/model.js";
+ import type { ContextInfo } from "./keyboard-types.js";
+@@ -34,8 +35,8 @@ function formatContextForButton(contextInfo: ContextInfo): string {
+  * @param contextInfo Optional context information (tokens used/limit)
+  * @param variantName Optional variant display name (e.g., "💭 Default")
+  * @param queuedPromptLabels Optional queued prompt labels, one row each above the fixed grid
+- * @returns Reply Keyboard with queued prompts on top, agent and context in the next row,
+- *          model and variant in the last row
++ * @returns Reply Keyboard with queued prompts on top, agent and context in one row,
++ *          the chat shortcut below, and model and variant in the last row
+  */
+ export function createMainKeyboard(
+   currentAgent: string,
+@@ -66,7 +67,10 @@ export function createMainKeyboard(
+   // Row 1: agent and context buttons
+   keyboard.text(agentText).text(contextText).row();
+ 
+-  // Row 2: model and variant buttons
++  // Row 2: one-tap switch to the chat/brainstorm agent
++  keyboard.text(CHAT_MODE_BUTTON_TEXT).row();
++
++  // Row 3: model and variant buttons
+   keyboard.text(modelText).text(variantText).row();
+ 
+   return keyboard.resized().persistent();
+diff --git a/src/bot/message-patterns.ts b/src/bot/message-patterns.ts
+index b1f4f20..ab36bdd 100644
+--- a/src/bot/message-patterns.ts
++++ b/src/bot/message-patterns.ts
+@@ -1,3 +1,8 @@
++// Reply-keyboard shortcut that switches straight to the chat/brainstorm agent.
++export const CHAT_AGENT_NAME = "chat";
++export const CHAT_MODE_BUTTON_TEXT = "💬 Chat";
++export const CHAT_MODE_BUTTON_TEXT_PATTERN = /^💬\s+Chat$/;
++
+ export const AGENT_MODE_BUTTON_TEXT_PATTERN = /^(📋|🛠️|💬|🔍|📝|📄|📦|🤖)\s.+\s(?:Mode|Agent)$/;
+ 
+ export const MODEL_BUTTON_TEXT_PATTERN = /^🧠\s(?!.*\s(?:Mode|Agent)$)[\s\S]+$/;
+@@ -10,6 +15,7 @@ export const CONTEXT_BUTTON_TEXT_PATTERN = /^📊(?:\s|$)/;
+ export const QUEUED_PROMPT_BUTTON_TEXT_PATTERN = /^❌\s\d+\.\s/;
+ 
+ const REPLY_KEYBOARD_BUTTON_TEXT_PATTERNS = [
++  CHAT_MODE_BUTTON_TEXT_PATTERN,
+   AGENT_MODE_BUTTON_TEXT_PATTERN,
+   MODEL_BUTTON_TEXT_PATTERN,
+   VARIANT_BUTTON_TEXT_PATTERN,
+diff --git a/src/bot/routers/message-router.ts b/src/bot/routers/message-router.ts
+index 2d97a1a..faa06b6 100644
+--- a/src/bot/routers/message-router.ts
++++ b/src/bot/routers/message-router.ts
+@@ -7,6 +7,7 @@ import { handleTaskTextInput } from "../commands/task-command.js";
+ import {
+   handleModelSearchTextInput,
+ } from "../callbacks/model-selection-callback-handler.js";
++import { applyAgentSelection } from "../callbacks/agent-selection-callback-handler.js";
+ import { handleQuestionTextAnswer } from "../callbacks/question-callback-handler.js";
+ import { handleRenameTextAnswer } from "../callbacks/rename-callback-handler.js";
+ import { handleContextButtonPress } from "../menus/context-control-menu.js";
+@@ -15,12 +16,15 @@ import { showModelSelectionMenu } from "../menus/model-selection-menu.js";
+ import { showVariantSelectionMenu } from "../menus/variant-selection-menu.js";
+ import {
+   AGENT_MODE_BUTTON_TEXT_PATTERN,
++  CHAT_AGENT_NAME,
++  CHAT_MODE_BUTTON_TEXT_PATTERN,
+   CONTEXT_BUTTON_TEXT_PATTERN,
+   MODEL_BUTTON_TEXT_PATTERN,
+   QUEUED_PROMPT_BUTTON_TEXT_PATTERN,
+   VARIANT_BUTTON_TEXT_PATTERN,
+ } from "../message-patterns.js";
+ import { promptQueue } from "../../app/managers/prompt-queue-manager.js";
++import { getAvailableAgents } from "../../app/services/agent-selection-service.js";
+ import { findQueuedPromptByButtonLabel } from "../keyboards/queued-prompt-button.js";
+ import { withdrawInboxPrompt } from "../../app/services/prompt-inbox-service.js";
+ import { handleDocumentMessage } from "../handlers/document-handler.js";
+@@ -95,6 +99,43 @@ export function registerMessageRouter(bot: Bot<Context>, deps: MessageRouterDeps
+     await ctx.reply(t("queue.not_found"), keyboard ? { reply_markup: keyboard } : {});
+   });
+ 
++  // Reply-keyboard shortcut: switch straight to the chat/brainstorm agent.
++  bot.hears(CHAT_MODE_BUTTON_TEXT_PATTERN, async (ctx) => {
++    logger.debug(`[Bot] Chat mode button pressed: ${ctx.message?.text}`);
++
++    try {
++      if (await blockMenuWhileInteractionActive(ctx, container.interactionManager)) {
++        return;
++      }
++
++      const agents = await getAvailableAgents();
++      if (!agents.some((agent) => agent.name === CHAT_AGENT_NAME)) {
++        logger.warn(
++          `[Bot] Chat agent "${CHAT_AGENT_NAME}" is not available; cannot switch to it.`,
++        );
++        await ctx.reply(t("error.load_agents"));
++        return;
++      }
++
++      // Feedback differs from the inline menu: a reply-keyboard press is not a
++      // callback, so the switch is confirmed with a plain message.
++      const { keyboard, text, settingsApplied } = await applyAgentSelection(
++        ctx,
++        container,
++        CHAT_AGENT_NAME,
++      );
++
++      await ctx.reply(text, { reply_markup: keyboard });
++
++      if (settingsApplied) {
++        await container.pinnedMessageManager.refresh();
++      }
++    } catch (err) {
++      logger.error("[Bot] Error switching to chat mode:", err);
++      await ctx.reply(t("error.load_agents"));
++    }
++  });
++
+   bot.hears(AGENT_MODE_BUTTON_TEXT_PATTERN, async (ctx) => {
+     logger.debug(`[Bot] Agent button pressed: ${ctx.message?.text}`);
+ 
