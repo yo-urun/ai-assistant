@@ -162,7 +162,7 @@ function Read-EnvMap([string]$Path) {
     return $map
 }
 
-function Save-Env([hashtable]$m) {
+function Save-Env([hashtable]$m, [hashtable]$Extra = @{}) {
     $l = New-Object System.Collections.Generic.List[string]
     $add = { param($s) $l.Add($s) }
     & $add '# ============================================================'
@@ -202,7 +202,7 @@ function Save-Env([hashtable]$m) {
     & $add "CUSTOM_BASE_URL=$($m.CUSTOM_BASE_URL)"
     & $add ''
     & $add '# --- Google Developers API (общий ключ, https://console.cloud.google.com) ---'
-    & $add 'GOOGLE_API_KEY='
+    & $add "GOOGLE_API_KEY=$($m.GOOGLE_API_KEY)"
     & $add '# --- Self-support mode (docs/self-support.md) ---'
     & $add "SELFHOST=$($m.SELFHOST)"
     & $add "HOST_FS_DIR=$($m.HOST_FS_DIR)"
@@ -234,6 +234,15 @@ function Save-Env([hashtable]$m) {
     & $add '# --- Прочее ---'
     & $add "TZ=$($m.TZ)"
     & $add "LOG_LEVEL=$($m.LOG_LEVEL)"
+
+    # Переменные, которых мастер не знает (например, тонкая настройка памяти
+    # из .env.example), переносим как есть - иначе повторный запуск молча
+    # сбросил бы их на дефолты compose.
+    if ($Extra.Count -gt 0) {
+        & $add ''
+        & $add '# --- Прочее: сохранено из прежнего .env без изменений ---'
+        foreach ($k in @($Extra.Keys | Sort-Object)) { & $add "$k=$($Extra[$k])" }
+    }
 
     $enc = New-Object System.Text.UTF8Encoding($false)   # без BOM
     [System.IO.File]::WriteAllLines($EnvFile, $l, $enc)
@@ -305,17 +314,22 @@ $d = @{
     GRAPHITI_DEBOUNCE_MS     = '180000'
     GRAPHITI_MAX_CHARS       = '12000'
     GRAPHITI_SEARCH_TOP_K    = '5'
+    GOOGLE_API_KEY           = ''
     OPENCODE_IMAGE           = 'opencode-v2:local'
     BOT_IMAGE                = 'opencode-telegram-bot:local'
     TZ                       = 'Europe/Moscow'
     LOG_LEVEL                = 'info'
 }
 
+$extraEnv = @{}
 if ((Test-Path -LiteralPath $EnvFile) -and -not $Reconfigure) {
     Info 'Найдены прежние настройки в .env — значения подставлены, Enter = оставить.'
     $existing = Read-EnvMap $EnvFile
     foreach ($k in @($d.Keys)) {
         if ($existing.ContainsKey($k) -and $existing[$k] -ne '') { $d[$k] = $existing[$k] }
+    }
+    foreach ($k in @($existing.Keys)) {
+        if (-not $d.ContainsKey($k)) { $extraEnv[$k] = $existing[$k] }
     }
 }
 
@@ -489,7 +503,7 @@ if ($d.SELFHOST -eq '1') {
 $d.TZ        = AskValue 'Часовой пояс' $d.TZ
 $d.LOG_LEVEL = AskValue 'Уровень логов (debug|info|warn|error)' $d.LOG_LEVEL
 
-Save-Env $d
+Save-Env $d $extraEnv
 Ok "Настройки сохранены в $EnvFile"
 if ($d.OPENCODE_CONFIG_FILE -eq 'opencode.local.jsonc') {
     Info 'Провайдер локальный: используется opencode\opencode.local.jsonc (пересобирается при запуске мастера).'

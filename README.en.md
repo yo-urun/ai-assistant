@@ -122,7 +122,9 @@ agent's `memory` tool: modes `search`, `add`, `status`, `redrive`.
 Variables in `.env`:
 
 - `GRAPHITI_URL` — where to write (default `http://graphiti:8000/mcp?codemode=false`);
-- `GRAPHITI_GROUP_ID` — graph group (default `main`).
+- `GRAPHITI_GROUP_ID` — graph group (default `opencode`);
+- `GRAPHITI_RECALL` — `off` (default, capture only) · `start` · `turn` — optional
+  memory injection into context (see [docs/memory.md](docs/memory.md)).
 
 Capture requires the `memory` profile (Graphiti + FalkorDB). The plugin is installed
 when the `opencode` image is built from GitHub — to update it, rebuild the image

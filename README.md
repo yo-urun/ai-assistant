@@ -122,7 +122,9 @@ chmod +x install.sh deploy.sh scripts/*.sh
 Переменные в `.env`:
 
 - `GRAPHITI_URL` — куда писать (по умолчанию `http://graphiti:8000/mcp?codemode=false`);
-- `GRAPHITI_GROUP_ID` — группа графа (по умолчанию `main`).
+- `GRAPHITI_GROUP_ID` — группа графа (по умолчанию `opencode`);
+- `GRAPHITI_RECALL` — `off` (по умолчанию, только захват) · `start` · `turn` —
+  опциональная инъекция памяти в контекст (см. [docs/memory.md](docs/memory.md)).
 
 Захват требует профиль `memory` (Graphiti + FalkorDB). Плагин ставится при сборке
 образа `opencode` из GitHub — чтобы обновить его, пересоберите образ

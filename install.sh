@@ -140,7 +140,7 @@ declare -A D=(
   [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini" [OPENCODE_SMALL_MODEL]=""
   [OPENCODE_CONFIG_FILE]="opencode.jsonc"
   [OLLAMA_BASE_URL]="http://host.docker.internal:11434/v1" [CUSTOM_BASE_URL]=""
-  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [CUSTOM_API_KEY]="" [SELFHOST]="0" [HOST_FS_DIR]=""
+  [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [CUSTOM_API_KEY]="" [GOOGLE_API_KEY]="" [SELFHOST]="0" [HOST_FS_DIR]=""
   [STT_API_URL]="https://api.groq.com/openai/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-large-v3-turbo" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
   [FALKORDB_PASSWORD]=""
@@ -150,6 +150,10 @@ declare -A D=(
   [OPENCODE_IMAGE]="opencode-v2:local" [BOT_IMAGE]="opencode-telegram-bot:local"
   [TZ]="Europe/Moscow" [LOG_LEVEL]="info"
 )
+# Переменные, которых мастер не знает (например, тонкая настройка памяти
+# из .env.example), переносим в новый .env как есть — иначе повторный
+# запуск молча сбросил бы их на дефолты compose.
+EXTRA=()
 
 if [[ -f "$ENV_FILE" && $RECONF -eq 0 ]]; then
   info "Найдены прежние настройки в .env — значения подставлены, Enter = оставить."
@@ -158,7 +162,12 @@ if [[ -f "$ENV_FILE" && $RECONF -eq 0 ]]; then
     [[ "$line" != *=* ]] && continue
     key="${line%%=*}"; val="${line#*=}"
     key="$(echo "$key" | xargs)"; val="$(echo "$val" | xargs)"
-    [[ -n "$val" && -v "D[$key]" ]] && D["$key"]="$val"
+    [[ -z "$key" ]] && continue
+    if [[ -v "D[$key]" ]]; then
+      [[ -n "$val" ]] && D["$key"]="$val"
+    else
+      EXTRA+=("$key=$val")
+    fi
   done < "$ENV_FILE"
 fi
 
@@ -202,7 +211,7 @@ OLLAMA_BASE_URL=${D[OLLAMA_BASE_URL]}
 CUSTOM_BASE_URL=${D[CUSTOM_BASE_URL]}
 
 # --- Google Developers API (общий ключ, https://console.cloud.google.com) ---
-GOOGLE_API_KEY=
+GOOGLE_API_KEY=${D[GOOGLE_API_KEY]}
 
 # --- Self-support mode (docs/self-support.md) ---
 # 1 - агент из контейнера управляет Docker хоста и видит HOST_FS_DIR в /host;
@@ -238,6 +247,13 @@ BOT_IMAGE=${D[BOT_IMAGE]}
 TZ=${D[TZ]}
 LOG_LEVEL=${D[LOG_LEVEL]}
 EOF
+  if [[ ${#EXTRA[@]} -gt 0 ]]; then
+    {
+      echo ''
+      echo '# --- Прочее: сохранено из прежнего .env без изменений ---'
+      printf '%s\n' "${EXTRA[@]}"
+    } >> "$ENV_FILE"
+  fi
   ok "Настройки сохранены в $ENV_FILE"
 }
 
