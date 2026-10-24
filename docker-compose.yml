@@ -8,15 +8,34 @@ services:
   opencode:
     build:
       context: ./opencode
+      args:
+        # Версию фонового экстрактора можно переопределить без правки Dockerfile.
+        EXTRACTOR_REF: ${EXTRACTOR_REF:-v0.5.0}
     image: ${OPENCODE_IMAGE:-opencode-v2:local}
     restart: unless-stopped
     env_file:
       - .env
     environment:
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+      # Дешёвая модель для сводок компакции. Пусто → модель сессии
+      # (OPENCODE_MODEL_PROVIDER/OPENCODE_MODEL_ID): так пустая строка в
+      # agents.compaction.model не ломает резолв и не ссылается на
+      # неподключённого провайдера. Своя модель — provider/model.
+      OPENCODE_SMALL_MODEL: ${OPENCODE_SMALL_MODEL:-${OPENCODE_MODEL_PROVIDER:-openai}/${OPENCODE_MODEL_ID:-gpt-4o-mini}}
       # Фоновый экстрактор памяти: куда писать и в какую группу графа.
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
       GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-opencode}
+      # Батчинг и сжатие эпизодов — главный рычаг расхода на экстракции
+      # (Graphiti не кэширует промпты). См. docs/token-budget.md.
+      GRAPHITI_DEBOUNCE_MS: ${GRAPHITI_DEBOUNCE_MS:-180000}
+      GRAPHITI_MIN_TURNS: ${GRAPHITI_MIN_TURNS:-4}
+      GRAPHITI_MIN_CHARS: ${GRAPHITI_MIN_CHARS:-400}
+      GRAPHITI_MAX_CHARS: ${GRAPHITI_MAX_CHARS:-12000}
+      GRAPHITI_PER_TURN_MAX: ${GRAPHITI_PER_TURN_MAX:-900}
+      GRAPHITI_ASSISTANT_MAX: ${GRAPHITI_ASSISTANT_MAX:-400}
+      GRAPHITI_MIN_TURN_CHARS: ${GRAPHITI_MIN_TURN_CHARS:-16}
+      GRAPHITI_SEARCH_TOP_K: ${GRAPHITI_SEARCH_TOP_K:-5}
+      GRAPHITI_SEARCH_MAX_CHARS: ${GRAPHITI_SEARCH_MAX_CHARS:-2000}
       # Самоорганизация памяти (нужен экстрактор v0.4.0+, см. docs/memory.md):
       #  - UPDATE_COMMUNITIES: инкрементальные кластеры при ingest (сейчас ВЫКЛ:
       #    известный баг Graphiti — build/update communities вешает MCP-сервер в
@@ -36,10 +55,16 @@ services:
       GRAPHITI_RECALL_TIMEOUT_MS: ${GRAPHITI_RECALL_TIMEOUT_MS:-800}
       # Общий ключ Google Developers API (см. .env.example).
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    # Ollama на хосте: из контейнера он доступен как host.docker.internal
+    # (на Linux без этой строки имя не резолвится).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     working_dir: /workspace
     volumes:
       # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.
-      - ./opencode/opencode.jsonc:/root/.config/opencode/opencode.jsonc:ro
+      # OPENCODE_CONFIG_FILE переключает файл на сгенерированный мастером
+      # (opencode.local.jsonc) для Ollama или своего OpenAI-совместимого endpoint.
+      - ./opencode/${OPENCODE_CONFIG_FILE:-opencode.jsonc}:/root/.config/opencode/opencode.jsonc:ro
       # Состояние OpenCode: БД сессий и пр.
       - opencode_data:/root/.local/share/opencode
       # Рабочая папка агента.
@@ -88,9 +113,18 @@ services:
       FALKORDB_HOST: falkordb
       FALKORDB_PORT: "6379"
       FALKORDB_PASSWORD: ${FALKORDB_PASSWORD}
-      # Graphiti использует LLM для эмбеддингов/реранкера.
+      # Graphiti использует LLM для извлечения/эмбеддингов/реранкера.
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      # Именно OPENAI_API_URL (а не OPENAI_BASE_URL) читает config.yaml Graphiti.
+      OPENAI_API_URL: ${OPENAI_API_URL:-${OPENAI_BASE_URL:-https://api.openai.com/v1}}
+      # Извлечение сущностей идёт без prompt cache, поэтому модель должна быть
+      # дешёвой. Reasoning-модель здесь не нужна.
+      MODEL_NAME: ${GRAPHITI_MODEL:-gpt-4o-mini}
+      EMBEDDER_MODEL: ${GRAPHITI_EMBEDDER_MODEL:-text-embedding-3-small}
+      # Меньше параллельных эпизодов = меньше пиков и 429; на цену за токен
+      # не влияет, но делает расход предсказуемым.
+      SEMAPHORE_LIMIT: ${GRAPHITI_SEMAPHORE_LIMIT:-2}
+      GRAPHITI_TELEMETRY_ENABLED: "false"
     depends_on:
       falkordb:
         condition: service_healthy

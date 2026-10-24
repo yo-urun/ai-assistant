@@ -106,6 +106,9 @@ dijagnostika) — u **[docs/deploy-vps.md](docs/deploy-vps.md)**.
   (dozvoli/zabrani alate, dodaj MCP servere), pa `docker compose restart opencode`.
 - **Scenariji i jezik** — preko `/settings` direktno u botu.
 - **Glas** — `STT_*` ključevi u `.env`; izgovor — `TTS_*`.
+- **Inženjerski skill-ovi** (`grill-me`, `tdd`, `code-review`...) su isključeni po
+  difoltu (troše ~1k tokena prompta po potezu); uključuju se build argumentom
+  `INSTALL_SKILLS=true` — vidi [docs/skills.md](docs/skills.md).
 
 ## Snimanje memorije
 
@@ -129,6 +132,22 @@ izgradnji `opencode` image-a sa GitHub-a — da ga ažuriraš, ponovo izgradi im
 
 > Obrada epizoda (izvlačenje entiteta/veza) radi sam Graphiti server asinhrono i, u
 > zavisnosti od provajdera, ne trenutno.
+
+## Budžet tokena
+
+Kit je podešen tako da dug razgovor ne košta kao veliki projekat:
+
+- **kompakcija** čuva ~8k skorijeg konteksta i sažima ranije
+  (`compaction.keep.tokens` + `buffer`);
+- **sažetke** piše jeftin model (`OPENCODE_SMALL_MODEL`);
+- **izlaz alata** je ograničen na 400 linija / 16 KiB;
+- **skill-ovi** ne ulaze u sistemski prompt dok se ne uključe;
+- **ekstraktor memorije** filtrira „ok“/„hvala“/komande, jače skraćuje odgovore
+  asistenta od korisničkih poruka i grupiše epizode;
+- **Graphiti** izvlači entitete jeftinim modelom (`GRAPHITI_MODEL`).
+
+Kako da izmeriš efekat, koje ručke da okreneš i šta ne treba menjati —
+**[docs/token-budget.md](docs/token-budget.md)** (ruski).
 
 ## Gotove slike (GHCR)
 

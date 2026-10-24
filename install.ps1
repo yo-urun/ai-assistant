@@ -85,11 +85,75 @@ function New-Hex([int]$Bytes = 24) {
     ($buf | ForEach-Object { $_.ToString('x2') }) -join ''
 }
 
+# -------------------------------------------------- Ollama / свой endpoint
+# Блок providers для opencode.local.jsonc. Адрес берётся из .env
+# ({env:...}), limit нужен, чтобы для модели работала компакция.
+function Get-ProvidersJson([string]$Kind, [string]$Model, [int]$Context) {
+    if ($Kind -eq 'ollama') {
+        return @"
+  // Ollama (добавлено мастером установки): адрес — OLLAMA_BASE_URL из .env,
+  // limit нужен, чтобы OpenCode вообще включал компакцию для этой модели.
+  "providers": {
+    "ollama": {
+      "settings": { "baseURL": "{env:OLLAMA_BASE_URL}" },
+      "models": {
+        "$Model": {
+          "name": "$Model",
+          "limit": { "context": $Context, "output": 8192 }
+        }
+      }
+    }
+  },
+"@ -split "`r?`n"
+    }
+    return @"
+  // Свой OpenAI-совместимый endpoint (добавлено мастером установки):
+  // адрес — CUSTOM_BASE_URL, ключ — CUSTOM_API_KEY (оба из .env).
+  "providers": {
+    "custom": {
+      "name": "Custom",
+      "env": ["CUSTOM_API_KEY"],
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": { "baseURL": "{env:CUSTOM_BASE_URL}" },
+      "models": {
+        "$Model": {
+          "name": "$Model",
+          "limit": { "context": $Context, "output": 8192 }
+        }
+      }
+    }
+  },
+"@ -split "`r?`n"
+}
+
+# opencode.local.jsonc = штатный конфиг, в котором строка-маркер
+# «// installer:providers» заменена блоком providers. Файл пересобирается
+# при каждом запуске мастера, поэтому обновления kit'а подхватываются.
+function Write-LocalConfig([string[]]$Block) {
+    $src = Join-Path $Root 'opencode\opencode.jsonc'
+    $dst = Join-Path $Root 'opencode\opencode.local.jsonc'
+    if (-not (Test-Path -LiteralPath $src)) { Fail "Не найден $src"; exit 1 }
+    $out = New-Object System.Collections.Generic.List[string]
+    $found = $false
+    foreach ($line in Get-Content -LiteralPath $src -Encoding UTF8) {
+        if ($line -match '^\s*//\s*installer:providers') {
+            foreach ($b in $Block) { $out.Add($b) }
+            $found = $true
+        } else {
+            $out.Add($line)
+        }
+    }
+    if (-not $found) { Fail 'В opencode.jsonc нет строки-маркера installer:providers'; exit 1 }
+    $enc = New-Object System.Text.UTF8Encoding($false)   # без BOM
+    [System.IO.File]::WriteAllLines($dst, $out, $enc)
+    Ok 'Конфиг для локального провайдера: opencode\opencode.local.jsonc'
+}
+
 # ------------------------------------------------------------------ env
 function Read-EnvMap([string]$Path) {
     $map = @{}
     if (-not (Test-Path -LiteralPath $Path)) { return $map }
-    foreach ($line in Get-Content -LiteralPath $Path) {
+    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
         if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
         $i = $line.IndexOf('=')
         if ($i -lt 1) { continue }
@@ -98,7 +162,7 @@ function Read-EnvMap([string]$Path) {
     return $map
 }
 
-function Save-Env([hashtable]$m) {
+function Save-Env([hashtable]$m, [hashtable]$Extra = @{}) {
     $l = New-Object System.Collections.Generic.List[string]
     $add = { param($s) $l.Add($s) }
     & $add '# ============================================================'
@@ -120,14 +184,25 @@ function Save-Env([hashtable]$m) {
     & $add '# --- Модель OpenCode ---'
     & $add "OPENCODE_MODEL_PROVIDER=$($m.OPENCODE_MODEL_PROVIDER)"
     & $add "OPENCODE_MODEL_ID=$($m.OPENCODE_MODEL_ID)"
+    & $add "# Дешёвая модель для сводок компакции (пусто - модель сессии)"
+    & $add "OPENCODE_SMALL_MODEL=$($m.OPENCODE_SMALL_MODEL)"
+    & $add '# Какой конфиг монтировать: opencode.jsonc | opencode.local.jsonc'
+    & $add "OPENCODE_CONFIG_FILE=$($m.OPENCODE_CONFIG_FILE)"
     & $add ''
     & $add '# --- Ключи провайдеров ---'
     & $add "OPENAI_API_KEY=$($m.OPENAI_API_KEY)"
     & $add "ANTHROPIC_API_KEY=$($m.ANTHROPIC_API_KEY)"
     & $add "OPENROUTER_API_KEY=$($m.OPENROUTER_API_KEY)"
+    & $add "CUSTOM_API_KEY=$($m.CUSTOM_API_KEY)"
+    & $add ''
+    & $add '# --- Локальный провайдер (Ollama / свой endpoint) ---'
+    & $add '# Нужны только при OPENCODE_CONFIG_FILE=opencode.local.jsonc.'
+    & $add '# Ollama в контейнере - http://ollama:11434/v1, на хосте - host.docker.internal.'
+    & $add "OLLAMA_BASE_URL=$($m.OLLAMA_BASE_URL)"
+    & $add "CUSTOM_BASE_URL=$($m.CUSTOM_BASE_URL)"
     & $add ''
     & $add '# --- Google Developers API (общий ключ, https://console.cloud.google.com) ---'
-    & $add 'GOOGLE_API_KEY='
+    & $add "GOOGLE_API_KEY=$($m.GOOGLE_API_KEY)"
     & $add '# --- Self-support mode (docs/self-support.md) ---'
     & $add "SELFHOST=$($m.SELFHOST)"
     & $add "HOST_FS_DIR=$($m.HOST_FS_DIR)"
@@ -145,6 +220,13 @@ function Save-Env([hashtable]$m) {
     & $add "GRAPHITI_IMAGE=$($m.GRAPHITI_IMAGE)"
     & $add "FALKORDB_IMAGE=$($m.FALKORDB_IMAGE)"
     & $add ''
+    & $add '# --- Экономия токенов (docs/token-budget.md) ---'
+    & $add "GRAPHITI_MODEL=$($m.GRAPHITI_MODEL)"
+    & $add "GRAPHITI_SEMAPHORE_LIMIT=$($m.GRAPHITI_SEMAPHORE_LIMIT)"
+    & $add "GRAPHITI_DEBOUNCE_MS=$($m.GRAPHITI_DEBOUNCE_MS)"
+    & $add "GRAPHITI_MAX_CHARS=$($m.GRAPHITI_MAX_CHARS)"
+    & $add "GRAPHITI_SEARCH_TOP_K=$($m.GRAPHITI_SEARCH_TOP_K)"
+    & $add ''
     & $add '# --- Docker-образы ---'
     & $add "OPENCODE_IMAGE=$($m.OPENCODE_IMAGE)"
     & $add "BOT_IMAGE=$($m.BOT_IMAGE)"
@@ -152,6 +234,15 @@ function Save-Env([hashtable]$m) {
     & $add '# --- Прочее ---'
     & $add "TZ=$($m.TZ)"
     & $add "LOG_LEVEL=$($m.LOG_LEVEL)"
+
+    # Переменные, которых мастер не знает (например, тонкая настройка памяти
+    # из .env.example), переносим как есть - иначе повторный запуск молча
+    # сбросил бы их на дефолты compose.
+    if ($Extra.Count -gt 0) {
+        & $add ''
+        & $add '# --- Прочее: сохранено из прежнего .env без изменений ---'
+        foreach ($k in @($Extra.Keys | Sort-Object)) { & $add "$k=$($Extra[$k])" }
+    }
 
     $enc = New-Object System.Text.UTF8Encoding($false)   # без BOM
     [System.IO.File]::WriteAllLines($EnvFile, $l, $enc)
@@ -200,30 +291,45 @@ $d = @{
     OPENCODE_SERVER_PASSWORD = ''
     OPENCODE_MODEL_PROVIDER  = 'openai'
     OPENCODE_MODEL_ID        = 'gpt-4o-mini'
+    OPENCODE_SMALL_MODEL     = ''
+    OPENCODE_CONFIG_FILE     = 'opencode.jsonc'
+    OLLAMA_BASE_URL          = 'http://host.docker.internal:11434/v1'
+    CUSTOM_BASE_URL          = ''
     OPENAI_API_KEY           = ''
     ANTHROPIC_API_KEY        = ''
     OPENROUTER_API_KEY       = ''
+    CUSTOM_API_KEY           = ''
     SELFHOST                 = '0'
     HOST_FS_DIR              = ''
-    STT_API_URL              = 'https://api.openai.com/v1'
+    STT_API_URL              = 'https://api.groq.com/openai/v1'
     STT_API_KEY              = ''
-    STT_MODEL                = 'whisper-1'
+    STT_MODEL                = 'whisper-large-v3-turbo'
     STT_LANGUAGE             = 'ru'
     COMPOSE_PROFILES         = 'memory'
     FALKORDB_PASSWORD        = ''
     GRAPHITI_IMAGE           = 'ghcr.io/your-github-user/ai-assistant-graphiti:latest'
     FALKORDB_IMAGE           = 'falkordb/falkordb:latest'
+    GRAPHITI_MODEL           = 'gpt-4o-mini'
+    GRAPHITI_SEMAPHORE_LIMIT = '2'
+    GRAPHITI_DEBOUNCE_MS     = '180000'
+    GRAPHITI_MAX_CHARS       = '12000'
+    GRAPHITI_SEARCH_TOP_K    = '5'
+    GOOGLE_API_KEY           = ''
     OPENCODE_IMAGE           = 'opencode-v2:local'
     BOT_IMAGE                = 'opencode-telegram-bot:local'
     TZ                       = 'Europe/Moscow'
     LOG_LEVEL                = 'info'
 }
 
+$extraEnv = @{}
 if ((Test-Path -LiteralPath $EnvFile) -and -not $Reconfigure) {
     Info 'Найдены прежние настройки в .env — значения подставлены, Enter = оставить.'
     $existing = Read-EnvMap $EnvFile
     foreach ($k in @($d.Keys)) {
         if ($existing.ContainsKey($k) -and $existing[$k] -ne '') { $d[$k] = $existing[$k] }
+    }
+    foreach ($k in @($existing.Keys)) {
+        if (-not $d.ContainsKey($k)) { $extraEnv[$k] = $existing[$k] }
     }
 }
 
@@ -239,15 +345,15 @@ $d.BOT_LOCALE               = AskValue 'Язык интерфейса бота (
 # ---------------------------------------------------------- LLM
 Write-Head '3. Модель OpenCode'
 $providers = @(
-    @{ key = 'openai';     name = 'OpenAI';           model = 'gpt-4o-mini';            keyEnv = 'OPENAI_API_KEY';     stt = 'https://api.openai.com/v1' },
-    @{ key = 'openrouter'; name = 'OpenRouter';       model = 'openai/gpt-4o-mini';     keyEnv = 'OPENROUTER_API_KEY'; stt = 'https://openrouter.ai/api/v1' },
-    @{ key = 'anthropic';  name = 'Anthropic';        model = 'claude-3-5-sonnet-latest'; keyEnv = 'ANTHROPIC_API_KEY'; stt = 'https://api.openai.com/v1' },
-    @{ key = 'ollama';     name = 'Ollama (локально)';model = 'llama3.1';               keyEnv = '';                   stt = 'https://api.openai.com/v1' },
-    @{ key = 'custom';     name = 'Свой вариант';     model = $d.OPENCODE_MODEL_ID;     keyEnv = 'OPENAI_API_KEY';     stt = $d.STT_API_URL }
+    @{ key = 'openai';     name = 'OpenAI';                           model = 'gpt-4o-mini';              keyEnv = 'OPENAI_API_KEY' },
+    @{ key = 'openrouter'; name = 'OpenRouter';                       model = 'openai/gpt-4o-mini';       keyEnv = 'OPENROUTER_API_KEY' },
+    @{ key = 'anthropic';  name = 'Anthropic';                        model = 'claude-3-5-sonnet-latest'; keyEnv = 'ANTHROPIC_API_KEY' },
+    @{ key = 'ollama';     name = 'Ollama (локально или на хосте)';   model = 'llama3.1';                 keyEnv = '' },
+    @{ key = 'custom';     name = 'Свой OpenAI-совместимый endpoint'; model = $d.OPENCODE_MODEL_ID;       keyEnv = 'CUSTOM_API_KEY' }
 )
 $chosen = $null
 if (-not $Yes) {
-    Write-Host 'Выберите провайдера (ключ вводится вручную):'
+    Write-Host 'Выберите провайдера:'
     for ($i = 0; $i -lt $providers.Count; $i++) {
         $mark = if ($providers[$i].key -eq $d.OPENCODE_MODEL_PROVIDER) { '*' } else { ' ' }
         Write-Host ("   {0}) {1} {2}" -f ($i + 1), $mark, $providers[$i].name)
@@ -261,7 +367,11 @@ if (-not $Yes) {
         }
         $n = 0
         if ([int]::TryParse($a, [ref]$n) -and $n -ge 1 -and $n -le $providers.Count) {
-            $chosen = $providers[$n - 1]; break
+            $chosen = $providers[$n - 1]
+            # Явный выбор провайдера — модель сбрасывается на его дефолт.
+            # Enter выше оставляет провайдера и модель как были.
+            $d.OPENCODE_MODEL_ID = $chosen.model
+            break
         }
         Warn 'Введите номер из списка.'
     }
@@ -270,7 +380,45 @@ if (-not $Yes) {
     if (-not $chosen) { $chosen = $providers[0] }
 }
 $d.OPENCODE_MODEL_PROVIDER = $chosen.key
-$d.OPENCODE_MODEL_ID       = AskValue 'Модель (provider/model -> model)' $chosen.model
+$kind = switch ($chosen.key) {
+    'openai'     { 'standard' }
+    'openrouter' { 'standard' }
+    'anthropic'  { 'standard' }
+    'ollama'     { 'ollama' }
+    default      { 'custom' }
+}
+
+if ($kind -eq 'standard') {
+    $d.OPENCODE_MODEL_ID    = AskValue 'Модель (без провайдера, напр. gpt-4o-mini)' $d.OPENCODE_MODEL_ID
+    $d.OPENCODE_CONFIG_FILE = 'opencode.jsonc'
+    if ([string]::IsNullOrWhiteSpace($d.OPENCODE_SMALL_MODEL)) {
+        $d.OPENCODE_SMALL_MODEL = switch ($chosen.key) {
+            'openai'     { 'openai/gpt-4o-mini' }
+            'openrouter' { 'openrouter/openai/gpt-4o-mini' }
+            'anthropic'  { 'anthropic/claude-3-5-haiku-latest' }
+            default      { '' }
+        }
+    }
+} elseif ($kind -eq 'ollama') {
+    $d.OPENCODE_MODEL_ID = AskValue 'Модель Ollama (ollama list, напр. qwen3:8b)' $d.OPENCODE_MODEL_ID
+    if ($d.OPENCODE_MODEL_ID -notmatch '^[A-Za-z0-9._:/-]+$') {
+        Fail 'В имени модели допустимы буквы, цифры, . _ : / -'; exit 1
+    }
+    $d.OLLAMA_BASE_URL = AskValue 'Адрес Ollama, видимый из контейнера (с /v1)' $d.OLLAMA_BASE_URL
+    $ctx = AskValue 'Контекст модели, токенов (ollama show <модель>)' '8192'
+    $d.OPENCODE_CONFIG_FILE = 'opencode.local.jsonc'
+    Write-LocalConfig (Get-ProvidersJson 'ollama' $d.OPENCODE_MODEL_ID ([int]$ctx))
+} else {
+    $d.OPENCODE_MODEL_ID = AskValue 'ID модели у провайдера (как в API)' $d.OPENCODE_MODEL_ID
+    if ($d.OPENCODE_MODEL_ID -notmatch '^[A-Za-z0-9._:/-]+$') {
+        Fail 'В ID модели допустимы буквы, цифры, . _ : / -'; exit 1
+    }
+    $d.CUSTOM_BASE_URL = AskValue 'Base URL endpoint (с /v1 в конце)' $d.CUSTOM_BASE_URL -Required
+    $ctx = AskValue 'Контекст модели, токенов' '128000'
+    $d.OPENCODE_CONFIG_FILE = 'opencode.local.jsonc'
+    Write-LocalConfig (Get-ProvidersJson 'custom' $d.OPENCODE_MODEL_ID ([int]$ctx))
+}
+
 if ($chosen.keyEnv -ne '') {
     $cur = $d[$chosen.keyEnv]
     $d[$chosen.keyEnv] = AskSecret "API-ключ для $($chosen.name) ($($chosen.keyEnv))" $cur -Required
@@ -278,14 +426,59 @@ if ($chosen.keyEnv -ne '') {
 
 # ---------------------------------------------------------- Whisper / STT
 Write-Head '4. Голос (Whisper-совместимый STT)'
-$d.STT_API_URL  = AskValue 'STT API base URL (пусто — выключить голос)' $d.STT_API_URL
+# Пресеты STT; текущий определяем по URL, чтобы повторный запуск
+# с Enter ничего не менял.
+$sttCur = '4'
 if ($d.STT_API_URL) {
+    if ($d.STT_API_URL -match 'groq\.com') { $sttCur = '1' }
+    elseif ($d.STT_API_URL -match 'api\.openai\.com') { $sttCur = '2' }
+    else { $sttCur = '3' }
+}
+
+$sttPresets = @(
+    @{ key = '1'; name = 'Groq — whisper-large-v3-turbo: быстро, есть бесплатный тариф'; url = 'https://api.groq.com/openai/v1'; model = 'whisper-large-v3-turbo' },
+    @{ key = '2'; name = 'OpenAI — whisper-1';                                          url = 'https://api.openai.com/v1';        model = 'whisper-1' },
+    @{ key = '3'; name = 'Свой OpenAI-совместимый STT';                                 url = '';                                 model = '' },
+    @{ key = '4'; name = 'Выключить голос';                                             url = '';                                 model = '' }
+)
+
+if (-not $Yes) {
+    Write-Host 'Голосовые сообщения (Whisper-совместимый STT):'
+    foreach ($p in $sttPresets) {
+        $mark = if ($p.key -eq $sttCur) { '*' } else { ' ' }
+        Write-Host ("   {0}) {1} {2}" -f $p.key, $mark, $p.name)
+    }
+    while ($true) {
+        $a = Read-Host "Номер [$sttCur]"
+        if ([string]::IsNullOrWhiteSpace($a)) { $a = $sttCur }
+        $preset = $sttPresets | Where-Object { $_.key -eq $a } | Select-Object -First 1
+        if (-not $preset) { Warn 'Введите номер из списка.'; continue }
+        if ($a -eq '4') { $d.STT_API_URL = ''; break }
+        if ($a -eq '3') {
+            $d.STT_API_URL = AskValue 'STT base URL (OpenAI-совместимый, пусто — выключить голос)' $d.STT_API_URL
+            if ($d.STT_API_URL) { $d.STT_MODEL = AskValue 'STT модель' $d.STT_MODEL }
+            break
+        }
+        # Ключ прежнего сервиса не подойдёт — забудем, спросим ниже.
+        if ($a -ne $sttCur) { $d.STT_API_KEY = '' }
+        $d.STT_API_URL = $preset.url
+        $d.STT_MODEL   = $preset.model
+        break
+    }
+}
+
+if ($d.STT_API_URL) {
+    # Ключ Whisper принадлежит STT-сервису: у OpenAI его можно не дублировать
+    # (берём OPENAI_API_KEY), для Groq и своих endpoint'ов он свой.
     $sttDefault = if ($d.STT_API_KEY) { $d.STT_API_KEY }
-                  elseif ($chosen.keyEnv -ne '' -and $d[$chosen.keyEnv]) { $d[$chosen.keyEnv] }
+                  elseif ($d.STT_API_URL -eq 'https://api.openai.com/v1') { $d.OPENAI_API_KEY }
                   else { '' }
-    $d.STT_API_KEY    = AskSecret 'STT API-ключ' $sttDefault
-    $d.STT_MODEL      = AskValue 'STT модель' $d.STT_MODEL
-    $d.STT_LANGUAGE   = AskValue 'Язык распознавания (пусто — авто)' $d.STT_LANGUAGE
+    $d.STT_API_KEY  = AskSecret 'STT API-ключ' $sttDefault
+    if (-not $d.STT_MODEL) { $d.STT_MODEL = AskValue 'STT модель' 'whisper-1' }
+    $d.STT_LANGUAGE = AskValue 'Язык распознавания (пусто — авто)' $d.STT_LANGUAGE
+    if (-not $d.STT_API_KEY) {
+        Warn 'STT_API_KEY пуст — голосовые не распознаются. Ключ Groq: https://console.groq.com/keys'
+    }
 }
 
 # ---------------------------------------------------------- Память
@@ -310,8 +503,11 @@ if ($d.SELFHOST -eq '1') {
 $d.TZ        = AskValue 'Часовой пояс' $d.TZ
 $d.LOG_LEVEL = AskValue 'Уровень логов (debug|info|warn|error)' $d.LOG_LEVEL
 
-Save-Env $d
+Save-Env $d $extraEnv
 Ok "Настройки сохранены в $EnvFile"
+if ($d.OPENCODE_CONFIG_FILE -eq 'opencode.local.jsonc') {
+    Info 'Провайдер локальный: используется opencode\opencode.local.jsonc (пересобирается при запуске мастера).'
+}
 
 if ($NoStart) {
     Write-Head 'Готово'

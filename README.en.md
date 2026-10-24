@@ -106,6 +106,9 @@ Full guide (firewall, prebuilt GHCR images, systemd, backups, proxy, diagnostics
   (allow/deny tools, add MCP servers), then `docker compose restart opencode`.
 - **Scenarios and language** — via `/settings` right in the bot.
 - **Voice** — `STT_*` keys in `.env`; speech output — `TTS_*`.
+- **Engineering skills** (`grill-me`, `tdd`, `code-review`...) are off by default
+  (they cost ~1k prompt tokens per turn); enable them with a build arg
+  `INSTALL_SKILLS=true` — see [docs/skills.md](docs/skills.md).
 
 ## Memory capture
 
@@ -129,6 +132,22 @@ when the `opencode` image is built from GitHub — to update it, rebuild the ima
 
 > Episode processing (entity/relationship extraction) is done by the Graphiti
 > server asynchronously and, depending on the provider, not instantly.
+
+## Token budget
+
+The kit is tuned so a long chat does not cost like a big project:
+
+- **compaction** keeps ~8k of recent context and compacts early
+  (`compaction.keep.tokens` + `buffer`);
+- **summaries** are written by a cheap model (`OPENCODE_SMALL_MODEL`);
+- **tool output** is capped at 400 lines / 16 KiB;
+- **skills** stay out of the system prompt unless enabled;
+- the **memory extractor** filters "ok"/"thanks"/commands, trims assistant
+  replies harder than user turns and batches episodes;
+- **Graphiti** extracts entities with a cheap model (`GRAPHITI_MODEL`).
+
+How to measure it, which knobs to turn and what not to change —
+**[docs/token-budget.md](docs/token-budget.md)** (Russian).
 
 ## Prebuilt images (GHCR)
 
