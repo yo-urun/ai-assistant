@@ -20,10 +20,18 @@ RUN npm install -g "open-codebase-index@${CODE_INDEX_VERSION}" \
     && command -v ocbi
 
 # Curated agent skills from mattpocock/skills (MIT), see docs/skills.md.
-# Baked into the global skills dir; pinned by commit SHA for reproducible builds.
+# Pinned by commit SHA for reproducible builds.
+#
+# OFF by default: every installed skill adds its name + description to the
+# system prompt of *every* request (≈1k tokens per turn). For a personal
+# Telegram assistant those engineering skills are dead weight; enable them
+# explicitly when you also use the bot for coding:
+#   docker build --build-arg INSTALL_SKILLS=true ...
+ARG INSTALL_SKILLS=false
 ARG SKILLS_REPO=https://github.com/mattpocock/skills
 ARG SKILLS_REF=49dd158d1076134a641b33efb035946536778336
 RUN set -eux; \
+    if [ "${INSTALL_SKILLS}" != "true" ]; then echo "skills: skipped (INSTALL_SKILLS=${INSTALL_SKILLS})"; exit 0; fi; \
     git init -q /tmp/skills \
     && git -C /tmp/skills remote add origin "${SKILLS_REPO}" \
     && git -C /tmp/skills fetch --depth 1 -q origin "${SKILLS_REF}" \
@@ -79,7 +87,7 @@ RUN set -eux; \
 # Фоновый экстрактор памяти (OpenCode V2 -> Graphiti MCP).
 # Плагин не имеет рантайм-зависимостей; читает GRAPHITI_URL / GRAPHITI_GROUP_ID из окружения.
 ARG EXTRACTOR_REPO=https://github.com/yo-urun/opencode-graphiti-extractor
-ARG EXTRACTOR_REF=v0.3.0
+ARG EXTRACTOR_REF=v0.5.0
 RUN git clone --depth 1 --branch ${EXTRACTOR_REF} ${EXTRACTOR_REPO} /opt/graphiti-extractor
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

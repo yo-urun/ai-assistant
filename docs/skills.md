@@ -1,10 +1,37 @@
 # Встроенные скиллы (mattpocock/skills)
 
-В образ агента запечены отобранные скиллы из
+Это **опциональный** набор: отобранные скиллы из
 [mattpocock/skills](https://github.com/mattpocock/skills) («Skills For Real
 Engineers», MIT) — одного из крупнейших репозиториев агентских практик.
 Они доступны боту через `/skills` и автоматически подгружаются агентом,
 когда задача подходит.
+
+> **Почему выключено по умолчанию.** Каждый установленный скилл добавляет своё
+> имя и описание в системный промпт *каждого* запроса — суммарно около 1k
+> токенов на ход. Для персонального ассистента в Telegram это мёртвый груз;
+> включайте набор, если пользуетесь ботом ещё и для кодинга
+> ([docs/token-budget.md](token-budget.md)).
+
+## Как включить
+
+Скиллы запекаются при сборке образа:
+
+```bash
+docker build --build-arg INSTALL_SKILLS=true -t opencode-v2:local ./opencode
+```
+
+В `docker-compose.yml`:
+
+```yaml
+services:
+  opencode:
+    build:
+      context: ./opencode
+      args:
+        INSTALL_SKILLS: "true"
+```
+
+Затем `docker compose up -d --build opencode`.
 
 ## Что внутри
 
@@ -41,9 +68,10 @@ Engineers», MIT) — одного из крупнейших репозитор�
 
 ## Обновление набора
 
-Скиллы запечены в образ по фиксированному SHA upstream-репозитория
-(`ARG SKILLS_REF` в `opencode/Dockerfile`). Обновление — пин нового SHA
-и пересборка; deps-бот пока не следит за этим репозиторием.
+Скиллы запекаются в образ по фиксированному SHA upstream-репозитория
+(`ARG SKILLS_REF` в `opencode/Dockerfile`, включается `ARG INSTALL_SKILLS=true`).
+Обновление — пин нового SHA и пересборка; deps-бот пока не следит за этим
+репозиторием.
 
 ## Свои скиллы
 
