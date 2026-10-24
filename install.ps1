@@ -292,9 +292,9 @@ $d = @{
     CUSTOM_API_KEY           = ''
     SELFHOST                 = '0'
     HOST_FS_DIR              = ''
-    STT_API_URL              = 'https://api.openai.com/v1'
+    STT_API_URL              = 'https://api.groq.com/openai/v1'
     STT_API_KEY              = ''
-    STT_MODEL                = 'whisper-1'
+    STT_MODEL                = 'whisper-large-v3-turbo'
     STT_LANGUAGE             = 'ru'
     COMPOSE_PROFILES         = 'memory'
     FALKORDB_PASSWORD        = ''
@@ -412,17 +412,59 @@ if ($chosen.keyEnv -ne '') {
 
 # ---------------------------------------------------------- Whisper / STT
 Write-Head '4. Голос (Whisper-совместимый STT)'
-$d.STT_API_URL  = AskValue 'STT API base URL (пусто — выключить голос)' $d.STT_API_URL
+# Пресеты STT; текущий определяем по URL, чтобы повторный запуск
+# с Enter ничего не менял.
+$sttCur = '4'
 if ($d.STT_API_URL) {
-    # Свой endpoint — не OpenAI: ключ для Whisper берём из OPENAI_API_KEY,
-    # а не CUSTOM_API_KEY.
-    $sttKeyEnv = if ($kind -eq 'standard' -and $chosen.keyEnv -ne '') { $chosen.keyEnv } else { 'OPENAI_API_KEY' }
+    if ($d.STT_API_URL -match 'groq\.com') { $sttCur = '1' }
+    elseif ($d.STT_API_URL -match 'api\.openai\.com') { $sttCur = '2' }
+    else { $sttCur = '3' }
+}
+
+$sttPresets = @(
+    @{ key = '1'; name = 'Groq — whisper-large-v3-turbo: быстро, есть бесплатный тариф'; url = 'https://api.groq.com/openai/v1'; model = 'whisper-large-v3-turbo' },
+    @{ key = '2'; name = 'OpenAI — whisper-1';                                          url = 'https://api.openai.com/v1';        model = 'whisper-1' },
+    @{ key = '3'; name = 'Свой OpenAI-совместимый STT';                                 url = '';                                 model = '' },
+    @{ key = '4'; name = 'Выключить голос';                                             url = '';                                 model = '' }
+)
+
+if (-not $Yes) {
+    Write-Host 'Голосовые сообщения (Whisper-совместимый STT):'
+    foreach ($p in $sttPresets) {
+        $mark = if ($p.key -eq $sttCur) { '*' } else { ' ' }
+        Write-Host ("   {0}) {1} {2}" -f $p.key, $mark, $p.name)
+    }
+    while ($true) {
+        $a = Read-Host "Номер [$sttCur]"
+        if ([string]::IsNullOrWhiteSpace($a)) { $a = $sttCur }
+        $preset = $sttPresets | Where-Object { $_.key -eq $a } | Select-Object -First 1
+        if (-not $preset) { Warn 'Введите номер из списка.'; continue }
+        if ($a -eq '4') { $d.STT_API_URL = ''; break }
+        if ($a -eq '3') {
+            $d.STT_API_URL = AskValue 'STT base URL (OpenAI-совместимый, пусто — выключить голос)' $d.STT_API_URL
+            if ($d.STT_API_URL) { $d.STT_MODEL = AskValue 'STT модель' $d.STT_MODEL }
+            break
+        }
+        # Ключ прежнего сервиса не подойдёт — забудем, спросим ниже.
+        if ($a -ne $sttCur) { $d.STT_API_KEY = '' }
+        $d.STT_API_URL = $preset.url
+        $d.STT_MODEL   = $preset.model
+        break
+    }
+}
+
+if ($d.STT_API_URL) {
+    # Ключ Whisper принадлежит STT-сервису: у OpenAI его можно не дублировать
+    # (берём OPENAI_API_KEY), для Groq и своих endpoint'ов он свой.
     $sttDefault = if ($d.STT_API_KEY) { $d.STT_API_KEY }
-                  elseif ($d[$sttKeyEnv]) { $d[$sttKeyEnv] }
+                  elseif ($d.STT_API_URL -eq 'https://api.openai.com/v1') { $d.OPENAI_API_KEY }
                   else { '' }
-    $d.STT_API_KEY    = AskSecret 'STT API-ключ' $sttDefault
-    $d.STT_MODEL      = AskValue 'STT модель' $d.STT_MODEL
-    $d.STT_LANGUAGE   = AskValue 'Язык распознавания (пусто — авто)' $d.STT_LANGUAGE
+    $d.STT_API_KEY  = AskSecret 'STT API-ключ' $sttDefault
+    if (-not $d.STT_MODEL) { $d.STT_MODEL = AskValue 'STT модель' 'whisper-1' }
+    $d.STT_LANGUAGE = AskValue 'Язык распознавания (пусто — авто)' $d.STT_LANGUAGE
+    if (-not $d.STT_API_KEY) {
+        Warn 'STT_API_KEY пуст — голосовые не распознаются. Ключ Groq: https://console.groq.com/keys'
+    }
 }
 
 # ---------------------------------------------------------- Память

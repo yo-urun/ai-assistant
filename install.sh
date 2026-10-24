@@ -141,7 +141,7 @@ declare -A D=(
   [OPENCODE_CONFIG_FILE]="opencode.jsonc"
   [OLLAMA_BASE_URL]="http://host.docker.internal:11434/v1" [CUSTOM_BASE_URL]=""
   [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [CUSTOM_API_KEY]="" [SELFHOST]="0" [HOST_FS_DIR]=""
-  [STT_API_URL]="https://api.openai.com/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-1" [STT_LANGUAGE]="ru"
+  [STT_API_URL]="https://api.groq.com/openai/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-large-v3-turbo" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
   [FALKORDB_PASSWORD]=""
   [GRAPHITI_IMAGE]="ghcr.io/your-github-user/ai-assistant-graphiti:latest" [FALKORDB_IMAGE]="falkordb/falkordb:latest"
@@ -335,17 +335,66 @@ if [[ -n "${KEYENV:-}" ]]; then
 fi
 
 head '4. Голос (Whisper-совместимый STT)'
-D[STT_API_URL]="$(ask_value 'STT API base URL (пусто — выключить голос)' "${D[STT_API_URL]}")"
+# Пресеты STT; текущий определяем по URL, чтобы повторный запуск
+# с Enter ничего не менял.
+stt_def=4
+case "${D[STT_API_URL]}" in
+  "") ;;
+  *groq.com*) stt_def=1 ;;
+  *api.openai.com*) stt_def=2 ;;
+  *) stt_def=3 ;;
+esac
+
+if [[ $YES -eq 0 ]]; then
+  echo 'Голосовые сообщения (Whisper-совместимый STT):'
+  stt_names=(
+    'Groq — whisper-large-v3-turbo: быстро, есть бесплатный тариф'
+    'OpenAI — whisper-1'
+    'Свой OpenAI-совместимый STT'
+    'Выключить голос'
+  )
+  for i in 0 1 2 3; do
+    mark=' '; [[ "$((i + 1))" -eq "$stt_def" ]] && mark='*'
+    printf '   %d) %s %s\n' "$((i + 1))" "$mark" "${stt_names[$i]}"
+  done
+  while :; do
+    read -r -p "Номер [$stt_def]: " p < /dev/tty
+    p="${p:-$stt_def}"
+    case "$p" in
+      1|2)
+        # Ключ прежнего сервиса не подойдёт — забудем, спросим ниже.
+        [[ "$p" -eq "$stt_def" ]] || D[STT_API_KEY]=""
+        if [[ "$p" -eq 1 ]]; then
+          D[STT_API_URL]='https://api.groq.com/openai/v1'
+          D[STT_MODEL]='whisper-large-v3-turbo'
+        else
+          D[STT_API_URL]='https://api.openai.com/v1'
+          D[STT_MODEL]='whisper-1'
+        fi
+        break ;;
+      3)
+        D[STT_API_URL]="$(ask_value 'STT base URL (OpenAI-совместимый, пусто — выключить голос)' "${D[STT_API_URL]}")"
+        [[ -n "${D[STT_API_URL]}" ]] && D[STT_MODEL]="$(ask_value 'STT модель' "${D[STT_MODEL]}")"
+        break ;;
+      4) D[STT_API_URL]=""; break ;;
+      *) warn 'Введите номер из списка.' ;;
+    esac
+  done
+fi
+
 if [[ -n "${D[STT_API_URL]}" ]]; then
-  # Свой endpoint — не OpenAI: ключ для Whisper берём из OPENAI_API_KEY,
-  # а не CUSTOM_API_KEY.
-  stt_keyenv="${KEYENV:-OPENAI_API_KEY}"
-  [[ "$PROVIDER_KIND" == "standard" ]] || stt_keyenv=OPENAI_API_KEY
+  # Ключ Whisper принадлежит STT-сервису: у OpenAI его можно не дублировать
+  # (берём OPENAI_API_KEY), для Groq и своих endpoint'ов он свой.
   stt_default="${D[STT_API_KEY]}"
-  [[ -n "$stt_default" ]] || stt_default="${D[$stt_keyenv]:-}"
+  if [[ -z "$stt_default" && "${D[STT_API_URL]}" == 'https://api.openai.com/v1' ]]; then
+    stt_default="${D[OPENAI_API_KEY]:-}"
+  fi
   D[STT_API_KEY]="$(ask_secret 'STT API-ключ' "$stt_default")"
-  D[STT_MODEL]="$(ask_value 'STT модель' "${D[STT_MODEL]}")"
+  [[ -n "${D[STT_MODEL]}" ]] || D[STT_MODEL]="$(ask_value 'STT модель' whisper-1)"
   D[STT_LANGUAGE]="$(ask_value 'Язык распознавания (пусто — авто)' "${D[STT_LANGUAGE]}")"
+  if [[ -z "${D[STT_API_KEY]}" ]]; then
+    warn 'STT_API_KEY пуст — голосовые не распознаются. Ключ Groq: https://console.groq.com/keys'
+  fi
 fi
 
 head '5. Память (Graphiti + FalkorDB)'

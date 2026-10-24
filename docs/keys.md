@@ -50,7 +50,7 @@ OPENROUTER_API_KEY=sk-or-...   # если выбрали OpenRouter
 
 | Ключ | Зачем | Где взять | Без него |
 |---|---|---|---|
-| `STT_API_KEY` (+ `STT_API_URL`, `STT_MODEL`) | Голосовые сообщения → текст | [console.groq.com/keys](https://console.groq.com/keys) (Whisper бесплатно) или OpenAI | Голос не работает, текст — да |
+| `STT_API_KEY` (+ `STT_API_URL`, `STT_MODEL`) | Голосовые сообщения → текст | [console.groq.com/keys](https://console.groq.com/keys) — мастер ставит Groq по умолчанию (бесплатный тариф); можно OpenAI или свой endpoint | Голос не работает, текст — да |
 | `GOOGLE_API_KEY` | Агент сам ходит в Google API (поиск, YouTube) | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | Просто нет этой функции |
 | `OPENAI_BASE_URL` | Прокси/совместимый endpoint вместо api.openai.com (OpenCode) | — | Не нужен большинству |
 | `OPENAI_API_URL` | То же для Graphiti; compose берёт `OPENAI_BASE_URL`, если не задан | — | Наследуется из `OPENAI_BASE_URL` |
