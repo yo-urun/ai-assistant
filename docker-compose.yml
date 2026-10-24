@@ -17,10 +17,11 @@ services:
       - .env
     environment:
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
-      # Дешёвая модель для сводок компакции. Всегда должна быть непустой:
-      # пустая строка в agents.compaction.model ломает резолв модели.
-      # Неизвестная провайдеру модель — OpenCode откатится на модель сессии.
-      OPENCODE_SMALL_MODEL: ${OPENCODE_SMALL_MODEL:-openai/gpt-4o-mini}
+      # Дешёвая модель для сводок компакции. Пусто → модель сессии
+      # (OPENCODE_MODEL_PROVIDER/OPENCODE_MODEL_ID): так пустая строка в
+      # agents.compaction.model не ломает резолв и не ссылается на
+      # неподключённого провайдера. Своя модель — provider/model.
+      OPENCODE_SMALL_MODEL: ${OPENCODE_SMALL_MODEL:-${OPENCODE_MODEL_PROVIDER:-openai}/${OPENCODE_MODEL_ID:-gpt-4o-mini}}
       # Фоновый экстрактор памяти: куда писать и в какую группу графа.
       GRAPHITI_URL: ${GRAPHITI_URL:-http://graphiti:8000/mcp?codemode=false}
       GRAPHITI_GROUP_ID: ${GRAPHITI_GROUP_ID:-main}
@@ -37,10 +38,16 @@ services:
       GRAPHITI_SEARCH_MAX_CHARS: ${GRAPHITI_SEARCH_MAX_CHARS:-2000}
       # Общий ключ Google Developers API (см. .env.example).
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    # Ollama на хосте: из контейнера он доступен как host.docker.internal
+    # (на Linux без этой строки имя не резолвится).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     working_dir: /workspace
     volumes:
       # Конфиг агента: модель, права, MCP graphiti. Правьте и перезапускайте.
-      - ./opencode/opencode.jsonc:/root/.config/opencode/opencode.jsonc:ro
+      # OPENCODE_CONFIG_FILE переключает файл на сгенерированный мастером
+      # (opencode.local.jsonc) для Ollama или своего OpenAI-совместимого endpoint.
+      - ./opencode/${OPENCODE_CONFIG_FILE:-opencode.jsonc}:/root/.config/opencode/opencode.jsonc:ro
       # Состояние OpenCode: БД сессий и пр.
       - opencode_data:/root/.local/share/opencode
       # Рабочая папка агента.

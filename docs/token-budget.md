@@ -51,6 +51,42 @@
 В OpenCode V2 **нет** опции «слайдинг-окно по числу сообщений»
 (`last_messages` из V1). Аналог — `compaction.keep.tokens` + `buffer` выше.
 
+#### Своя модель (Ollama, свой endpoint): без `limit` компакции нет
+
+Порог компакции считается как `limit.context − buffer`. Для провайдеров,
+которые OpenCode знает из коробки, лимит приходит вместе с каталогом моделей.
+У Ollama и своего OpenAI-совместимого endpoint каталога нет: если в блоке
+`providers` у модели не указан `limit`, OpenCode считает лимит неизвестным и
+**не запускает компакцию вообще** — история растёт, пока провайдер не вернёт
+ошибку контекста.
+
+Мастер установки (пункты «Ollama» и «Свой вариант») генерирует
+`opencode/opencode.local.jsonc` с явным лимитом и монтирует его вместо
+штатного конфига (`OPENCODE_CONFIG_FILE` в `.env`):
+
+```jsonc
+"providers": {
+  "custom": {
+    "name": "Custom",
+    "env": ["CUSTOM_API_KEY"],
+    "package": "@opencode/ai/providers/openai-compatible",
+    "settings": { "baseURL": "{env:CUSTOM_BASE_URL}" },
+    "models": {
+      "<id модели>": {
+        "name": "<id модели>",
+        "limit": { "context": 128000, "output": 8192 }
+      }
+    }
+  }
+}
+```
+
+`context` — реальное окно модели (для Ollama смотрите `ollama show <модель>`),
+`output` — запас на ответ. Сменили модель или окно — правьте файл и делайте
+`docker compose restart opencode`. Адрес и ключ живут в `.env`
+(`OLLAMA_BASE_URL`, `CUSTOM_BASE_URL`, `CUSTOM_API_KEY`), в конфиге только
+ссылки `{env:...}`.
+
 ### 2. Дешёвая модель для сводок
 
 ```env
@@ -58,8 +94,10 @@ OPENCODE_SMALL_MODEL=openai/gpt-4o-mini
 ```
 
 `agents.compaction.model` в конфиге берёт значение из этой переменной. Сводку
-пишет дешёвая модель, а не основная. Пустое значение или неизвестная модель —
-OpenCode откатывается на модель сессии.
+пишет дешёвая модель, а не основная. Пустое значение compose подставляет как
+`OPENCODE_MODEL_PROVIDER/OPENCODE_MODEL_ID` — то есть сводки пишет модель
+сессии; на неизвестную провайдеру модель OpenCode тоже откатывается на модель
+сессии.
 
 ### 3. Ограничение вывода инструментов
 
@@ -155,7 +193,9 @@ Graphiti читает `OPENAI_API_URL` (не `OPENAI_BASE_URL`). Compose под�
 1. **Размер контекста.** В боте нажмите 📊 (контекст) — видно, сколько токенов
    занимает текущая сессия. Если после наших изменений контекст всё ещё
    стабильно >40k, проверьте, что конфиг подхватился: `/reload` (V2) или
-   `docker compose restart opencode`.
+   `docker compose restart opencode`. Для Ollama и своего endpoint проверьте,
+   что у модели в `opencode.local.jsonc` есть `limit` (см. раздел выше) —
+   без него компакция не включается.
 2. **Сводки.** Первая компакция после обновления перепишет старую историю
    один раз — это разовый расход. Дальше потолок будет ~32k.
 3. **Экстрактор.** `docker compose exec opencode tail -n 50 /root/.config/opencode/graphiti-extractor.log`

@@ -1,8 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
-  // Модель по умолчанию. Бот может переопределять её из /settings.
-  "model": "openai/gpt-4o-mini",
+  // installer:providers — в эту строку-маркер мастер установки вставляет блок "providers" (Ollama/свой endpoint).
+
+  // Модель по умолчанию — из .env, чтобы одна сборка работала с любым
+  // провайдером (OpenAI/OpenRouter/Anthropic/Ollama/свой endpoint).
+  // Бот задаёт модель сессии сам, из /settings.
+  "model": "{env:OPENCODE_MODEL_PROVIDER}/{env:OPENCODE_MODEL_ID}",
 
   // Агент, который используется, если сессия не выбрала иной.
   "default_agent": "assistant",
