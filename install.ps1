@@ -120,6 +120,8 @@ function Save-Env([hashtable]$m) {
     & $add '# --- Модель OpenCode ---'
     & $add "OPENCODE_MODEL_PROVIDER=$($m.OPENCODE_MODEL_PROVIDER)"
     & $add "OPENCODE_MODEL_ID=$($m.OPENCODE_MODEL_ID)"
+    & $add "# Дешёвая модель для сводок компакции (пусто - модель сессии)"
+    & $add "OPENCODE_SMALL_MODEL=$($m.OPENCODE_SMALL_MODEL)"
     & $add ''
     & $add '# --- Ключи провайдеров ---'
     & $add "OPENAI_API_KEY=$($m.OPENAI_API_KEY)"
@@ -144,6 +146,13 @@ function Save-Env([hashtable]$m) {
     & $add "FALKORDB_PASSWORD=$($m.FALKORDB_PASSWORD)"
     & $add "GRAPHITI_IMAGE=$($m.GRAPHITI_IMAGE)"
     & $add "FALKORDB_IMAGE=$($m.FALKORDB_IMAGE)"
+    & $add ''
+    & $add '# --- Экономия токенов (docs/token-budget.md) ---'
+    & $add "GRAPHITI_MODEL=$($m.GRAPHITI_MODEL)"
+    & $add "GRAPHITI_SEMAPHORE_LIMIT=$($m.GRAPHITI_SEMAPHORE_LIMIT)"
+    & $add "GRAPHITI_DEBOUNCE_MS=$($m.GRAPHITI_DEBOUNCE_MS)"
+    & $add "GRAPHITI_MAX_CHARS=$($m.GRAPHITI_MAX_CHARS)"
+    & $add "GRAPHITI_SEARCH_TOP_K=$($m.GRAPHITI_SEARCH_TOP_K)"
     & $add ''
     & $add '# --- Docker-образы ---'
     & $add "OPENCODE_IMAGE=$($m.OPENCODE_IMAGE)"
@@ -200,6 +209,7 @@ $d = @{
     OPENCODE_SERVER_PASSWORD = ''
     OPENCODE_MODEL_PROVIDER  = 'openai'
     OPENCODE_MODEL_ID        = 'gpt-4o-mini'
+    OPENCODE_SMALL_MODEL     = ''
     OPENAI_API_KEY           = ''
     ANTHROPIC_API_KEY        = ''
     OPENROUTER_API_KEY       = ''
@@ -213,6 +223,11 @@ $d = @{
     FALKORDB_PASSWORD        = ''
     GRAPHITI_IMAGE           = 'ghcr.io/your-github-user/ai-assistant-graphiti:latest'
     FALKORDB_IMAGE           = 'falkordb/falkordb:latest'
+    GRAPHITI_MODEL           = 'gpt-4o-mini'
+    GRAPHITI_SEMAPHORE_LIMIT = '2'
+    GRAPHITI_DEBOUNCE_MS     = '180000'
+    GRAPHITI_MAX_CHARS       = '12000'
+    GRAPHITI_SEARCH_TOP_K    = '5'
     OPENCODE_IMAGE           = 'opencode-v2:local'
     BOT_IMAGE                = 'opencode-telegram-bot:local'
     TZ                       = 'Europe/Moscow'
@@ -271,6 +286,14 @@ if (-not $Yes) {
 }
 $d.OPENCODE_MODEL_PROVIDER = $chosen.key
 $d.OPENCODE_MODEL_ID       = AskValue 'Модель (provider/model -> model)' $chosen.model
+if ([string]::IsNullOrWhiteSpace($d.OPENCODE_SMALL_MODEL)) {
+    $d.OPENCODE_SMALL_MODEL = switch ($chosen.key) {
+        'openai'     { 'openai/gpt-4o-mini' }
+        'openrouter' { 'openrouter/openai/gpt-4o-mini' }
+        'anthropic'  { 'anthropic/claude-3-5-haiku-latest' }
+        default      { '' }
+    }
+}
 if ($chosen.keyEnv -ne '') {
     $cur = $d[$chosen.keyEnv]
     $d[$chosen.keyEnv] = AskSecret "API-ключ для $($chosen.name) ($($chosen.keyEnv))" $cur -Required

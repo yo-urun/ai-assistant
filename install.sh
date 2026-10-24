@@ -77,12 +77,14 @@ declare -A D=(
   [TELEGRAM_BOT_TOKEN]="" [TELEGRAM_ALLOWED_USER_ID]="" [BOT_LOCALE]="ru"
   [OPENCODE_SERVER_VERSION]="v2" [OPENCODE_API_URL]="http://opencode:49374"
   [OPENCODE_SERVER_USERNAME]="opencode" [OPENCODE_SERVER_PASSWORD]=""
-  [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini"
+  [OPENCODE_MODEL_PROVIDER]="openai" [OPENCODE_MODEL_ID]="gpt-4o-mini" [OPENCODE_SMALL_MODEL]=""
   [OPENAI_API_KEY]="" [ANTHROPIC_API_KEY]="" [OPENROUTER_API_KEY]="" [SELFHOST]="0" [HOST_FS_DIR]=""
   [STT_API_URL]="https://api.openai.com/v1" [STT_API_KEY]="" [STT_MODEL]="whisper-1" [STT_LANGUAGE]="ru"
   [COMPOSE_PROFILES]="memory"
   [FALKORDB_PASSWORD]=""
   [GRAPHITI_IMAGE]="ghcr.io/your-github-user/ai-assistant-graphiti:latest" [FALKORDB_IMAGE]="falkordb/falkordb:latest"
+  [GRAPHITI_MODEL]="gpt-4o-mini" [GRAPHITI_SEMAPHORE_LIMIT]="2" [GRAPHITI_DEBOUNCE_MS]="180000"
+  [GRAPHITI_MAX_CHARS]="12000" [GRAPHITI_SEARCH_TOP_K]="5"
   [OPENCODE_IMAGE]="opencode-v2:local" [BOT_IMAGE]="opencode-telegram-bot:local"
   [TZ]="Europe/Moscow" [LOG_LEVEL]="info"
 )
@@ -120,6 +122,8 @@ OPENCODE_SERVER_PASSWORD=${D[OPENCODE_SERVER_PASSWORD]}
 # --- Модель OpenCode ---
 OPENCODE_MODEL_PROVIDER=${D[OPENCODE_MODEL_PROVIDER]}
 OPENCODE_MODEL_ID=${D[OPENCODE_MODEL_ID]}
+# Дешёвая модель для сводок компакции (пусто - модель сессии)
+OPENCODE_SMALL_MODEL=${D[OPENCODE_SMALL_MODEL]}
 
 # --- Ключи провайдеров ---
 OPENAI_API_KEY=${D[OPENAI_API_KEY]}
@@ -147,6 +151,13 @@ COMPOSE_PROFILES=${D[COMPOSE_PROFILES]}
 FALKORDB_PASSWORD=${D[FALKORDB_PASSWORD]}
 GRAPHITI_IMAGE=${D[GRAPHITI_IMAGE]}
 FALKORDB_IMAGE=${D[FALKORDB_IMAGE]}
+
+# --- Экономия токенов (docs/token-budget.md) ---
+GRAPHITI_MODEL=${D[GRAPHITI_MODEL]}
+GRAPHITI_SEMAPHORE_LIMIT=${D[GRAPHITI_SEMAPHORE_LIMIT]}
+GRAPHITI_DEBOUNCE_MS=${D[GRAPHITI_DEBOUNCE_MS]}
+GRAPHITI_MAX_CHARS=${D[GRAPHITI_MAX_CHARS]}
+GRAPHITI_SEARCH_TOP_K=${D[GRAPHITI_SEARCH_TOP_K]}
 
 # --- Docker-образы ---
 OPENCODE_IMAGE=${D[OPENCODE_IMAGE]}
@@ -212,6 +223,14 @@ else
 fi
 
 D[OPENCODE_MODEL_ID]="$(ask_value 'Модель (provider/model -> model)' "${D[OPENCODE_MODEL_ID]}")"
+if [[ -z "${D[OPENCODE_SMALL_MODEL]}" ]]; then
+  case "${D[OPENCODE_MODEL_PROVIDER]}" in
+    openai)     D[OPENCODE_SMALL_MODEL]='openai/gpt-4o-mini' ;;
+    openrouter) D[OPENCODE_SMALL_MODEL]='openrouter/openai/gpt-4o-mini' ;;
+    anthropic)  D[OPENCODE_SMALL_MODEL]='anthropic/claude-3-5-haiku-latest' ;;
+    *)          D[OPENCODE_SMALL_MODEL]='' ;;
+  esac
+fi
 if [[ -n "${KEYENV:-}" ]]; then
   D[$KEYENV]="$(ask_secret "API-ключ ($KEYENV)" "${D[$KEYENV]:-}" 1)"
 fi

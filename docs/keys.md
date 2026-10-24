@@ -33,7 +33,8 @@ OPENROUTER_API_KEY=sk-or-...   # если выбрали OpenRouter
 |---|---|---|---|
 | `STT_API_KEY` (+ `STT_API_URL`, `STT_MODEL`) | Голосовые сообщения → текст | [console.groq.com/keys](https://console.groq.com/keys) (Whisper бесплатно) или OpenAI | Голос не работает, текст — да |
 | `GOOGLE_API_KEY` | Агент сам ходит в Google API (поиск, YouTube) | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | Просто нет этой функции |
-| `OPENAI_BASE_URL` | Прокси/совместимый endpoint вместо api.openai.com | — | Не нужен большинству |
+| `OPENAI_BASE_URL` | Прокси/совместимый endpoint вместо api.openai.com (OpenCode) | — | Не нужен большинству |
+| `OPENAI_API_URL` | То же для Graphiti; compose берёт `OPENAI_BASE_URL`, если не задан | — | Наследуется из `OPENAI_BASE_URL` |
 | `FALKORDB_PASSWORD` | Пароль графовой БД | Генерирует мастер | — |
 | `OPENCODE_SERVER_PASSWORD` | Пароль между ботом и агентом | Генерирует мастер | — |
 
