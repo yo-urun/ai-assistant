@@ -9,7 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Ставим актуальный OpenCode V2 CLI.
-ARG OPENCODE_CLI_VERSION=2.0.26
+ARG OPENCODE_CLI_VERSION=2.2.1
 RUN npm install -g "@opencode/cli@${OPENCODE_CLI_VERSION}"
 
 # open-codebase-index: semantic code index (OpenCode native plugin, see docs/code-indexing.md).
